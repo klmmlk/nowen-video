@@ -102,17 +102,31 @@ jobs:
           printf 'sdk.dir=%s\n' "${{ github.workspace }}/android-sdk" \
             > android/local.properties
 
+      - name: Generate debug keystore for release fallback signing
+        run: |
+          set -euo pipefail
+          # CI runner 没有 ~/.android/debug.keystore；release 的 debugFallback
+          # signingConfig 指向它，不生成则 packageTvRelease 签名阶段报错。
+          # 参数与 Android Studio / AGP 自动生成的 debug keystore 保持一致。
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
       - name: Build TV debug APK
         working-directory: android
         run: |
-          set -e
+          set -euo pipefail
           chmod +x gradlew
           ./gradlew :app:assembleTvDebug --no-daemon --console=plain 2>&1 | tee tv-debug.log
 
       - name: Build TV release APK
         working-directory: android
         run: |
-          set -e
+          set -euo pipefail
+          chmod +x gradlew
           ./gradlew :app:assembleTvRelease --no-daemon --console=plain 2>&1 | tee tv-release.log
 
       - name: Upload build logs
