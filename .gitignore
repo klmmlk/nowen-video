@@ -71,6 +71,10 @@ android/.cxx/
 *.p12
 *.pfx
 
+# 本地 media3 临时构建源码（重建 AV1 aar 时现拉；不入库）
+.tmp-media3/
+.claude/
+
 # 第三方参考源码（不纳入本仓库）
 mdcx-master/
 

@@ -48,7 +48,16 @@ dependencies {
     implementation(libs.media3.ui)
     // AV1 软解扩展（libgav1）：从 media3 v1.5.1 源码本地构建，
     // Maven 上无发布版。硬解优先、软解兜底，覆盖无 AV1 解码器的模拟器和老设备。
-    implementation(files("libs/media3-decoder-av1-1.5.1.aar"))
+    // 模拟器（API 28 QEMU ranchu）走 ANativeWindow_lock + YUV memcpy 路径会触发
+    // gralloc.ranchu.so 的 SIGSEGV，与 libgav1 本身无关；在模拟器场景下可用
+    // -PdisableAv1SoftDecoder=true 关闭此依赖，让 ExoPlayer 走系统的
+    // "unsupported track" UI 而不是 SIGSEGV。
+    val av1SoftDecoderEnabled = providers.gradleProperty("disableAv1SoftDecoder")
+        .map { it.toString().toBooleanStrict() }
+        .getOrElse(false)
+    if (!av1SoftDecoderEnabled) {
+        implementation(files("libs/media3-decoder-av1-1.5.1.aar"))
+    }
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)
 }
