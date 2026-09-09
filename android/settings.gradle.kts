@@ -22,4 +22,5 @@ include(
     ":core:designsystem",
     ":core:data",
     ":feature:main",
+    ":feature:tv",
 )

@@ -87,6 +87,18 @@ android {
         buildConfig = true
     }
 
+    // 平台变体：phone 为原手机版；tv 为 Android TV 版（独立包名 .tv）。
+    flavorDimensions += "platform"
+    productFlavors {
+        create("phone") {
+            dimension = "platform"
+        }
+        create("tv") {
+            dimension = "platform"
+            applicationIdSuffix = ".tv"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -100,6 +112,7 @@ android {
 
 dependencies {
     implementation(project(":feature:main"))
+    "tvImplementation"(project(":feature:tv"))
     implementation(project(":core:data"))
     implementation(project(":core:model"))
     implementation(project(":core:designsystem"))

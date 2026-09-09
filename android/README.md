@@ -22,14 +22,14 @@
 
 ```bash
 cd android
-./gradlew testDebugUnitTest lintDebug assembleDebug
+./gradlew testDebugUnitTest lintPhoneDebug assemblePhoneDebug assembleTvDebug
 ```
 
 Windows:
 
 ```powershell
 cd android
-.\gradlew.bat testDebugUnitTest lintDebug assembleDebug
+.\gradlew.bat testDebugUnitTest lintPhoneDebug assemblePhoneDebug assembleTvDebug
 ```
 
 正式签名和发布流程见 [RELEASE.md](./RELEASE.md)，设备冒烟流程见 [SMOKE_TEST.md](./SMOKE_TEST.md)。

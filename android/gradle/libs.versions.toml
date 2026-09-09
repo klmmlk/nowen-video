@@ -17,6 +17,7 @@ coil = "2.7.0"
 datastore = "1.1.1"
 coroutines = "1.9.0"
 media3 = "1.5.1"
+androidxTv = "1.0.0"
 paging = "3.5.0"
 work = "2.10.0"
 cameraX = "1.4.1"
@@ -42,6 +43,8 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 androidx-compose-icons = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+androidx-tv-foundation = { group = "androidx.tv", name = "tv-foundation", version.ref = "androidxTv" }
+androidx-tv-material = { group = "androidx.tv", name = "tv-material", version.ref = "androidxTv" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
 androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
 androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime", version.ref = "paging" }
@@ -64,6 +67,9 @@ media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", versi
 media3-exoplayer-hls = { group = "androidx.media3", name = "media3-exoplayer-hls", version.ref = "media3" }
 media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
 media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
+# 注意：media3 的 AV1/ffmpeg 软解扩展不发布到 Maven，无法直接依赖；
+# 软解兜底依靠系统自带的软件 MediaCodec（Android 10+ 含 c2.android.av1.decoder），
+# 在播放器里通过 DefaultRenderersFactory.setEnableDecoderFallback(true) 启用。
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android TV 桌面 banner，规格 320x180。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path
+        android:pathData="M0,0h320v180h-320z">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
+            <gradient
+                android:startX="0"
+                android:startY="0"
+                android:endX="320"
+                android:endY="180"
+                android:type="linear">
+                <item
+                    android:color="#FF070A12"
+                    android:offset="0.0" />
+                <item
+                    android:color="#FF171D2B"
+                    android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M118,58h84a10,10 0 0 1 10,10v44a10,10 0 0 1 -10,10h-84a10,10 0 0 1 -10,-10v-44a10,10 0 0 1 10,-10z">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
+            <gradient
+                android:startX="108"
+                android:startY="58"
+                android:endX="212"
+                android:endY="122"
+                android:type="linear">
+                <item
+                    android:color="#FF8F7AFF"
+                    android:offset="0.0" />
+                <item
+                    android:color="#FF7057FF"
+                    android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M128,104v-28l24,28v-28"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

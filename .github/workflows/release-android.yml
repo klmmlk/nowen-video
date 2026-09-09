@@ -144,7 +144,7 @@ jobs:
           set -euo pipefail
           chmod +x android/gradlew
           ./android/gradlew -p android \
-            clean testDebugUnitTest lintDebug assembleRelease bundleRelease \
+            clean testDebugUnitTest lintPhoneDebug assemblePhoneRelease bundlePhoneRelease \
             --no-daemon --stacktrace
 
       - name: Verify package identity and signatures

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- TV 必需声明：仅允许安装在 leanback 设备上。 -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="true" />
+    <!-- TV 无触屏，声明为非必需以便模拟器与机顶盒安装。 -->
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+
+    <application
+        android:banner="@drawable/tv_banner"
+        android:theme="@style/Theme.Nowen">
+        <activity
+            android:name="com.nowen.video.v2.MainActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:exported="true"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

@@ -9,7 +9,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.nowen.video.v2.core.data.HighlightComputeAgent
-import com.nowen.video.v2.feature.main.NowenApp
 import com.nowen.video.v2.feature.main.PlaybackPictureInPictureHost
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -35,7 +34,7 @@ class MainActivity : ComponentActivity(), PlaybackPictureInPictureHost {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            NowenApp()
+            PlatformRoot.Content()
         }
     }
 

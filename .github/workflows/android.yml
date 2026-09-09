@@ -107,7 +107,7 @@ jobs:
           set +e
           chmod +x android/gradlew
           ./android/gradlew -p android \
-            testDebugUnitTest assembleDebugAndroidTest lintDebug assembleDebug assembleRelease \
+            testDebugUnitTest assemblePhoneDebugAndroidTest lintDebug assemblePhoneDebug assemblePhoneRelease assembleTvDebug \
             --no-daemon --stacktrace 2>&1 | tee android-build.log
           status=${PIPESTATUS[0]}
           echo "status=$status" >> "$GITHUB_OUTPUT"
