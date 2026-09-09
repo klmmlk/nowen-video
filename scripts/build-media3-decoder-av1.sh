@@ -18,6 +18,11 @@ PATCH_DIR="$REPO_ROOT/scripts/media3-decoder-av1-patches"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
+# 解析为相对于调用方 cwd 的绝对路径；脚本内部会 cd 到临时目录，
+# 相对 OUT_DIR 会在那里生效导致产物拷错位置（CI 已验证踩到）。
+mkdir -p "$OUT_DIR"
+OUT_DIR="$(cd "$OUT_DIR" && pwd)"
+
 # Git Bash (Windows) 传入的 /d/AndroidSDK 风格路径要转成 Gradle 认识的
 # Windows 路径；native Windows 路径 (D:/...) 与 Linux CI 的绝对路径原样保留。
 if command -v cygpath >/dev/null 2>&1; then
