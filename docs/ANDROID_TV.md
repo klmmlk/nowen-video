@@ -406,12 +406,23 @@ productFlavors {
 
 - `Gav1Decoder.java`：`gav1DecoderContext` 非 final；`release()` 关闭后置 0；
   `releaseOutputBuffer`/`release` 加 `synchronized` 并在上下文为 0 时跳过 `gav1ReleaseFrame`
-- `gav1_jni.cc`：`gav1Close` 改为延迟 5s 销毁（僵尸列表），`gav1ReleaseFrame` 空上下文直接返回
+- `gav1_jni.cc`：
+  - `gav1Close` 改为延迟 5s 销毁（僵尸列表）
+  - `gav1ReleaseFrame` 空上下文直接返回
+  - `JniBufferManager::ReleaseBuffer` 加 `id` 范围检查，越界直接 no-op（**关键兜底**）
+  - `Libgav1ReleaseFrameBuffer` 入参 `buffer_private_data == nullptr` 时直接返回
 - `jni/CMakeLists.txt`：x86/x86_64 ABI 强制 `LIBGAV1_ENABLE_AVX2/SSE4_1/OPTIMIZATIONS=OFF`（纯 C）
 
-### 已知未解决问题
+### 崩溃兜底说明
 
-模拟器（Android TV x86 32 位）播放 AV1 时 libgav1 存在堆损坏：`JniContext` 在无任何
-`gav1Close` 调用的情况下被清零，`gav1ReleaseFrame` 解引用 SIGSEGV，复现于播完换集时。
-已排除：释放竞态（守卫+延迟销毁无效）、libgav1/abseil 版本错配（v0.19.0+20240116.2 仍崩）、
-x86 汇编路径（纯 C 仍崩）。真机 arm64 是否受影响未验证。
+崩溃点是 libgav1 内部回调 `Libgav1ReleaseFrameBuffer`（native→native 路径），
+不是 Java→JNI 入口。早先多轮修复（释放竞态守卫、zombie 延迟销毁、x86 关闭
+汇编、libgav1 钉版本）均无效——它们没在保护真正的崩溃路径。
+
+反汇编崩溃现场确认：`buffer_id` 由 libgav1 内部分别通过两条路径传回
+`ReleaseBuffer`——Java→JNI 走 `outputBuffer.decoderPrivate`，native→native
+回调走 `&JniFrameBuffer::id_`，时序不一致时会引入非法 id（崩溃现场观察到
+`buffer_id = 0x45 = 69` 远超 `kMaxFrames = 32`）。
+
+最终起作用的修复是 `ReleaseBuffer` 的范围检查：越界直接 no-op，避免越界
+解引用 `all_buffers_[id]` 触发 SIGSEGV。真机 arm64 上是否仍需此兜底未验证。
