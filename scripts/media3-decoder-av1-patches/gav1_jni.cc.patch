@@ -1,0 +1,63 @@
+diff --git a/libraries/decoder_av1/src/main/jni/gav1_jni.cc b/libraries/decoder_av1/src/main/jni/gav1_jni.cc
+index 8c06a2a..9c092ed 100644
+--- a/libraries/decoder_av1/src/main/jni/gav1_jni.cc
++++ b/libraries/decoder_av1/src/main/jni/gav1_jni.cc
+@@ -245,14 +245,25 @@ class JniBufferManager {
+     return kJniStatusOk;
+   }
+ 
+-  JniFrameBuffer* GetBuffer(int id) const { return all_buffers_[id]; }
++  JniFrameBuffer* GetBuffer(int id) const {
++    if (id < 0 || id >= all_buffer_count_) {
++      return nullptr;
++    }
++    return all_buffers_[id];
++  }
+ 
+   void AddBufferReference(int id) {
+     std::lock_guard<std::mutex> lock(mutex_);
++    if (id < 0 || id >= all_buffer_count_) {
++      return;
++    }
+     all_buffers_[id]->AddReference();
+   }
+ 
+   JniStatusCode ReleaseBuffer(int id) {
++    if (id < 0 || id >= all_buffer_count_) {
++      return kJniStatusBufferAlreadyReleased;
++    }
+     std::lock_guard<std::mutex> lock(mutex_);
+     JniFrameBuffer* buffer = all_buffers_[id];
+     if (!buffer->InUse()) {
+@@ -360,6 +371,9 @@ Libgav1StatusCode Libgav1GetFrameBuffer(void* callback_private_data,
+ 
+ void Libgav1ReleaseFrameBuffer(void* callback_private_data,
+                                void* buffer_private_data) {
++  if (callback_private_data == nullptr || buffer_private_data == nullptr) {
++    return;
++  }
+   JniContext* const context = static_cast<JniContext*>(callback_private_data);
+   const int buffer_id = *static_cast<const int*>(buffer_private_data);
+   context->jni_status_code = context->buffer_manager.ReleaseBuffer(buffer_id);
+@@ -650,6 +664,10 @@ DECODER_FUNC(jint, gav1GetFrame, jlong jContext, jobject jOutputBuffer,
+     context->buffer_manager.AddBufferReference(buffer_id);
+     JniFrameBuffer* const jni_buffer =
+         context->buffer_manager.GetBuffer(buffer_id);
++    if (jni_buffer == nullptr) {
++      context->jni_status_code = kJniStatusBufferAlreadyReleased;
++      return kStatusError;
++    }
+     jni_buffer->SetFrameData(*decoder_buffer);
+     env->CallVoidMethod(jOutputBuffer, context->init_for_private_frame_method,
+                         decoder_buffer->displayed_width[kPlaneY],
+@@ -671,6 +689,10 @@ DECODER_FUNC(jint, gav1RenderFrame, jlong jContext, jobject jSurface,
+       env->GetIntField(jOutputBuffer, context->decoder_private_field);
+   JniFrameBuffer* const jni_buffer =
+       context->buffer_manager.GetBuffer(buffer_id);
++  if (jni_buffer == nullptr) {
++    context->jni_status_code = kJniStatusBufferAlreadyReleased;
++    return kStatusError;
++  }
+ 
+   if (!context->MaybeAcquireNativeWindow(env, jSurface)) {
+     return kStatusError;

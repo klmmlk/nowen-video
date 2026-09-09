@@ -1,0 +1,21 @@
+diff --git a/libraries/decoder_av1/src/main/jni/CMakeLists.txt b/libraries/decoder_av1/src/main/jni/CMakeLists.txt
+index 4a39b6c..e437602 100644
+--- a/libraries/decoder_av1/src/main/jni/CMakeLists.txt
++++ b/libraries/decoder_av1/src/main/jni/CMakeLists.txt
+@@ -36,6 +36,16 @@ endif()
+ 
+ set(libgav1_jni_root "${CMAKE_CURRENT_SOURCE_DIR}")
+ 
++# x86 / x86_64 ABI: disable libgav1 SIMD assembly paths.
++# Android emulator x86 images do not reliably support AVX2 / SSE4.1 at runtime;
++# keeping these off forces libgav1 down the pure C path and removes a class of
++# SIGSEGV observed on the API 28 TV emulator. arm ABIs are unaffected.
++if(${ANDROID_ABI} MATCHES "x86")
++    set(LIBGAV1_ENABLE_OPTIMIZATIONS OFF CACHE BOOL "" FORCE)
++    set(LIBGAV1_ENABLE_AVX2 OFF CACHE BOOL "" FORCE)
++    set(LIBGAV1_ENABLE_SSE4_1 OFF CACHE BOOL "" FORCE)
++endif()
++
+ # Build cpu_features library.
+ add_subdirectory("${libgav1_jni_root}/cpu_features"
+                  EXCLUDE_FROM_ALL)
