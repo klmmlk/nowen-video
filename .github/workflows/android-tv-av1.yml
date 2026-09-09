@@ -57,15 +57,11 @@ jobs:
           rm tools.zip
           export ANDROID_HOME="$SDK_ROOT"
           export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$SDK_ROOT/platform-tools:$PATH"
-          # 预置已接受的 license 文件，避免 `yes | sdkmanager --licenses` 在
-          # pipefail 下因 broken pipe 失败（GitHub Actions 常见坑）。
+          # Pre-accept licenses by writing the accepted hash files directly,
+          # avoiding `yes | sdkmanager --licenses` (broken pipe under pipefail).
           mkdir -p "$SDK_ROOT/licenses"
-          cat > "$SDK_ROOT/licenses/android-sdk-license" <<'EOF'
-24333f8a63b6825ea9c5514f83c2829b004d1fee
-EOF
-          cat > "$SDK_ROOT/licenses/android-sdk-preview-license" <<'EOF'
-84831b9409646a918e30573bab4c9c91346d8abd
-EOF
+          printf '%s\n' '24333f8a63b6825ea9c5514f83c2829b004d1fee' > "$SDK_ROOT/licenses/android-sdk-license"
+          printf '%s\n' '84831b9409646a918e30573bab4c9c91346d8abd' > "$SDK_ROOT/licenses/android-sdk-preview-license"
           sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
