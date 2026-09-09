@@ -84,9 +84,11 @@ jobs:
         env:
           ANDROID_HOME: ${{ github.workspace }}/android-sdk
           ANDROID_SDK_ROOT: ${{ github.workspace }}/android-sdk
-          PATH: ${{ github.workspace }}/android-sdk/cmdline-tools/latest/bin:${{ github.workspace }}/android-sdk/platform-tools:$PATH
         run: |
           set -euo pipefail
+          # env does not expand $PATH in GitHub Actions; prepend sdk tools inside
+          # the shell instead so system commands stay on PATH.
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           chmod +x scripts/build-media3-decoder-av1.sh
           mkdir -p android/feature/tv/libs
           bash scripts/build-media3-decoder-av1.sh \
