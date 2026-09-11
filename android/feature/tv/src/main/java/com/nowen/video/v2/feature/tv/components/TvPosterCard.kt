@@ -31,12 +31,16 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.nowen.video.v2.core.model.MediaCard
 
-/** TV 海报卡尺寸：比手机版 MediaPosterCard 更大，匹配 10-foot 观看距离。 */
+/** TV 海报卡尺寸：比手机版 MediaPosterCard 更大，匹配 10-foot 观看距离。
+ *  按标准 Android TV 逻辑宽度（约 960x540dp，1080p + 320dpi）校准：
+ *  海报 112dp 让影视库/搜索网格在该宽度下排 6 列。 */
 object TvCardMetrics {
-    val PosterWidth = 156.dp
-    val CardRadius = 12.dp
-    val CardGap = 18.dp
-    val RailGap = 28.dp
+    val PosterWidth = 112.dp
+    val CardRadius = 10.dp
+    val CardGap = 14.dp
+    val RailGap = 18.dp
+    /** 各页面统一水平留白，替代原先散落各屏的 48dp。 */
+    val PageGutter = 28.dp
 }
 
 /**

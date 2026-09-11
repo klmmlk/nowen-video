@@ -102,21 +102,21 @@ fun TvSearchScreen(
     val session by viewModel.sessionStore.snapshot.collectAsState()
     val baseUrl = session.activeServer?.baseUrl
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 48.dp)) {
-        Spacer(Modifier.height(28.dp))
+    Column(Modifier.fillMaxSize().padding(horizontal = TvCardMetrics.PageGutter)) {
+        Spacer(Modifier.height(12.dp))
         Text("搜索", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(10.dp))
         OutlinedTextField(
             value = state.query,
             onValueChange = viewModel::query,
             placeholder = { Text("输入片名、演员或关键词") },
             singleLine = true,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(10.dp),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { viewModel.query(state.query) }),
-            modifier = Modifier.fillMaxWidth().height(64.dp).tvRequestInitialFocus(),
+            modifier = Modifier.fillMaxWidth().height(48.dp).tvRequestInitialFocus(),
         )
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
         when {
             state.searching -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -131,7 +131,7 @@ fun TvSearchScreen(
             }
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = TvCardMetrics.PosterWidth),
-                contentPadding = PaddingValues(bottom = 40.dp),
+                contentPadding = PaddingValues(bottom = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(TvCardMetrics.CardGap),
                 verticalArrangement = Arrangement.spacedBy(TvCardMetrics.RailGap),
             ) {

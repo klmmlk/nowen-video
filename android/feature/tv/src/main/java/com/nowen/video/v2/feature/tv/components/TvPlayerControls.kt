@@ -63,7 +63,7 @@ fun TvPlayerControls(
         modifier = modifier
             .fillMaxWidth()
             .background(controlsScrimBrush())
-            .padding(horizontal = 48.dp, vertical = 26.dp),
+            .padding(horizontal = 28.dp, vertical = 18.dp),
     ) {
         Text(
             title.ifBlank { "正在播放" },

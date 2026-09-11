@@ -29,15 +29,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
@@ -52,6 +56,7 @@ import com.nowen.video.v2.feature.tv.components.tvFocusScale
 import com.nowen.video.v2.feature.tv.components.tvRequestInitialFocus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -81,6 +86,19 @@ class TvHomeViewModel @Inject constructor(
                 .onFailure { error -> _state.update { it.copy(loading = false, error = error.message ?: "加载失败") } }
         }
     }
+
+    private var silentRefreshJob: Job? = null
+
+    /** 返回首页时静默刷新：不切 loading 态以免旧内容整屏闪烁，失败时保留现有内容。 */
+    fun refreshSilently() {
+        silentRefreshJob?.cancel()
+        silentRefreshJob = viewModelScope.launch {
+            repository.loadHome()
+                .onSuccess { content ->
+                    _state.update { it.copy(content = content, error = null) }
+                }
+        }
+    }
 }
 
 /** TV 首页：Hero 横幅 + 继续观看 + 最近添加。 */
@@ -94,6 +112,21 @@ fun TvHomeScreen(
     val state by viewModel.state.collectAsState()
     val session by viewModel.sessionStore.snapshot.collectAsState()
     val baseUrl = session.activeServer?.baseUrl
+
+    // 从播放器/其它页面返回首页时刷新（继续观看、最近添加）。
+    // 导航栈 restoreState 会让 ViewModel 与旧内容原地复活，init 的 refresh 不会再跑；
+    // 跳过首次 ON_RESUME，因为那与 init 刷新重合。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, viewModel) {
+        var skipInitialResume = true
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                if (skipInitialResume) skipInitialResume = false else viewModel.refreshSilently()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -125,7 +158,7 @@ private fun TvHomeContent(
     val hero = content.recent.firstOrNull() ?: content.continueWatching.firstOrNull()
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(bottom = 40.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
     ) {
         if (hero != null) {
             item(key = "hero") {
@@ -168,14 +201,14 @@ private fun TvHomeContent(
         }
         if (content.libraries.isNotEmpty()) {
             item(key = "libraries") {
-                Column(Modifier.padding(horizontal = 48.dp)) {
+                Column(Modifier.padding(horizontal = TvCardMetrics.PageGutter)) {
                     TvRailTitle("媒体库")
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         content.libraries.forEach { library ->
                             OutlinedButton(
                                 onClick = onLibraryClick,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.height(52.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.height(44.dp),
                             ) {
                                 Text(library.name)
                             }
@@ -192,7 +225,11 @@ internal fun TvRailTitle(title: String) {
     Text(
         title,
         style = MaterialTheme.typography.titleLarge,
-        modifier = Modifier.padding(start = 48.dp, top = 30.dp, bottom = 12.dp),
+        modifier = Modifier.padding(
+            start = TvCardMetrics.PageGutter,
+            top = 18.dp,
+            bottom = 10.dp,
+        ),
     )
 }
 
@@ -203,7 +240,7 @@ internal fun TvMediaRail(
     onClick: (MediaCard) -> Unit,
 ) {
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 48.dp),
+        contentPadding = PaddingValues(horizontal = TvCardMetrics.PageGutter),
         horizontalArrangement = Arrangement.spacedBy(TvCardMetrics.CardGap),
     ) {
         items(items, key = { it.resolvedId + it.hashCode() }) { media ->
@@ -227,7 +264,9 @@ private fun TvHero(
     Box(
         Modifier
             .fillMaxWidth()
-            .aspectRatio(16f / 8f),
+            // 3:1 在 960x540dp 的标准 TV 逻辑宽度下约占屏高 59%，
+            // 保证 Hero 下方 rail 能露头，提示内容可滚动。
+            .aspectRatio(3f),
     ) {
         AsyncImage(
             model = tvArtwork(baseUrl, media.resolvedBackdrop ?: media.resolvedPoster),
@@ -239,8 +278,12 @@ private fun TvHero(
         Column(
             Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 48.dp, end = 48.dp, bottom = 26.dp)
-                .width(560.dp),
+                .padding(
+                    start = TvCardMetrics.PageGutter,
+                    end = TvCardMetrics.PageGutter,
+                    bottom = 20.dp,
+                )
+                .width(480.dp),
         ) {
             Text(
                 media.displayTitle,
@@ -268,27 +311,27 @@ private fun TvHero(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.height(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Button(
                     onClick = onPlay,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier
-                        .height(56.dp)
-                        .width(170.dp)
+                        .height(48.dp)
+                        .width(150.dp)
                         .tvRequestInitialFocus()
-                        .tvFocusScale(shape = RoundedCornerShape(12.dp)),
+                        .tvFocusScale(shape = RoundedCornerShape(10.dp)),
                 ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(26.dp))
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("播放", style = MaterialTheme.typography.titleMedium)
                 }
                 OutlinedButton(
                     onClick = onDetail,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier
-                        .height(56.dp)
-                        .tvFocusScale(shape = RoundedCornerShape(12.dp)),
+                        .height(48.dp)
+                        .tvFocusScale(shape = RoundedCornerShape(10.dp)),
                 ) {
                     Icon(Icons.Filled.Info, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
@@ -311,10 +354,10 @@ internal fun TvErrorPane(
             Spacer(Modifier.height(18.dp))
             Button(
                 onClick = onAction,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier
-                    .height(52.dp)
-                    .tvFocusScale(shape = RoundedCornerShape(12.dp)),
+                    .height(44.dp)
+                    .tvFocusScale(shape = RoundedCornerShape(10.dp)),
             ) {
                 Icon(Icons.Filled.Refresh, contentDescription = null)
                 Spacer(Modifier.width(6.dp))

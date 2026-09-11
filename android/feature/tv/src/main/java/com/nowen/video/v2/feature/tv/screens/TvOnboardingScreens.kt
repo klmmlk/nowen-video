@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
 /**
  * TV 服务器连接页：复用手机版 ServerSetupViewModel，
  * 仅重排为 10-foot 布局（大输入框、大按钮、D-pad 焦点）。
+ * 局域网自动发现放在最上面：首次配置最常见的路径是直接点选发现的设备。
  * TV 无摄像头，不提供扫码入口。
  */
 @Composable
@@ -51,7 +52,43 @@ fun TvServerSetupScreen(viewModel: ServerSetupViewModel = hiltViewModel()) {
 
     LaunchedEffect(Unit) { viewModel.startDiscovery() }
 
-    TvOnboardingScaffold(title = "连接服务器", subtitle = "输入 Nowen Video 服务器地址") {
+    TvOnboardingScaffold(title = "连接服务器", subtitle = "选择局域网内发现的服务器，或手动输入地址") {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "局域网内发现的服务器",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedButton(
+                onClick = viewModel::startDiscovery,
+                enabled = !state.isScanning,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.height(44.dp),
+            ) {
+                Text(if (state.isScanning) "搜索中…" else "重新搜索")
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        when {
+            state.discoveredServers.isNotEmpty() -> state.discoveredServers.forEach { server ->
+                DiscoveredServerRow(name = server.name, url = server.url) {
+                    viewModel.addDiscovered(server)
+                }
+                Spacer(Modifier.height(10.dp))
+            }
+            state.isScanning -> Text(
+                "正在搜索局域网…",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            else -> Text(
+                "未发现服务器，可等待搜索完成，或在下方手动输入地址",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Spacer(Modifier.height(28.dp))
+        Text("手动连接", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = state.address,
             onValueChange = viewModel::address,
@@ -68,42 +105,21 @@ fun TvServerSetupScreen(viewModel: ServerSetupViewModel = hiltViewModel()) {
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(24.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Button(
-                onClick = viewModel::connect,
-                enabled = !state.loading,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.height(56.dp).width(200.dp),
-            ) {
-                if (state.loading) {
-                    CircularProgressIndicator(Modifier.height(22.dp).width(22.dp), strokeWidth = 2.dp)
-                } else {
-                    Text("连接", style = MaterialTheme.typography.titleMedium)
-                }
-            }
-            OutlinedButton(
-                onClick = viewModel::startDiscovery,
-                enabled = !state.isScanning,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.height(56.dp),
-            ) {
-                Text(if (state.isScanning) "正在搜索…" else "重新搜索局域网")
+        Button(
+            onClick = viewModel::connect,
+            enabled = !state.loading,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.height(48.dp).width(180.dp),
+        ) {
+            if (state.loading) {
+                CircularProgressIndicator(Modifier.height(22.dp).width(22.dp), strokeWidth = 2.dp)
+            } else {
+                Text("连接", style = MaterialTheme.typography.titleMedium)
             }
         }
         state.error?.let { error ->
             Spacer(Modifier.height(16.dp))
             Text(error, color = MaterialTheme.colorScheme.error)
-        }
-        if (state.discoveredServers.isNotEmpty()) {
-            Spacer(Modifier.height(28.dp))
-            Text("局域网内发现的服务器", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(12.dp))
-            state.discoveredServers.forEach { server ->
-                DiscoveredServerRow(name = server.name, url = server.url) {
-                    viewModel.addDiscovered(server)
-                }
-                Spacer(Modifier.height(10.dp))
-            }
         }
         if (state.servers.isNotEmpty()) {
             Spacer(Modifier.height(28.dp))
@@ -167,8 +183,8 @@ fun TvLoginScreen(viewModel: LoginViewModel = hiltViewModel()) {
             Button(
                 onClick = viewModel::login,
                 enabled = !state.loading,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.height(56.dp).width(200.dp),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.height(48.dp).width(180.dp),
             ) {
                 if (state.loading) {
                     CircularProgressIndicator(Modifier.height(22.dp).width(22.dp), strokeWidth = 2.dp)
@@ -178,8 +194,8 @@ fun TvLoginScreen(viewModel: LoginViewModel = hiltViewModel()) {
             }
             OutlinedButton(
                 onClick = viewModel::changeServer,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.height(56.dp),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.height(48.dp),
             ) {
                 Text("切换服务器")
             }
@@ -265,8 +281,8 @@ fun TvForcePasswordScreen(viewModel: TvPasswordViewModel = hiltViewModel()) {
         Button(
             onClick = viewModel::submit,
             enabled = !state.loading,
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.height(56.dp).width(200.dp),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.height(48.dp).width(180.dp),
         ) {
             if (state.loading) {
                 CircularProgressIndicator(Modifier.height(22.dp).width(22.dp), strokeWidth = 2.dp)
@@ -291,12 +307,12 @@ private fun TvOnboardingScaffold(
     Box(
         Modifier
             .fillMaxSize()
-            .padding(horizontal = 48.dp, vertical = 40.dp),
+            .padding(horizontal = 48.dp, vertical = 32.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(
             Modifier
-                .width(560.dp)
+                .width(520.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
             Text(title, style = MaterialTheme.typography.headlineLarge)

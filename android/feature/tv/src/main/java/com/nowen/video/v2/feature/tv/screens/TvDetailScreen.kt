@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -53,6 +54,7 @@ import com.nowen.video.v2.core.data.ServerSessionStore
 import com.nowen.video.v2.core.model.MediaDetail
 import com.nowen.video.v2.core.model.SeriesBundle
 import com.nowen.video.v2.core.model.seriesEpisodeSubtitle
+import com.nowen.video.v2.feature.tv.components.TvCardMetrics
 import com.nowen.video.v2.feature.tv.components.TvScrimBrush
 import com.nowen.video.v2.feature.tv.components.tvFocusScale
 import com.nowen.video.v2.feature.tv.components.tvRequestInitialFocus
@@ -146,7 +148,7 @@ private fun TvDetailContent(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 48.dp, end = 48.dp, bottom = 40.dp),
+                .padding(start = TvCardMetrics.PageGutter, end = TvCardMetrics.PageGutter, bottom = 24.dp),
         ) {
             Spacer(Modifier.height(20.dp))
             TvBackButton(onBack)
@@ -173,28 +175,28 @@ private fun TvDetailContent(
                 Spacer(Modifier.height(14.dp))
                 Text(detail.overview, style = MaterialTheme.typography.bodyLarge)
             }
-            Spacer(Modifier.height(26.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Spacer(Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Button(
                     onClick = onPlay,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier
-                        .height(56.dp)
-                        .width(180.dp)
+                        .height(48.dp)
+                        .width(160.dp)
                         .tvRequestInitialFocus()
-                        .tvFocusScale(shape = RoundedCornerShape(12.dp)),
+                        .tvFocusScale(shape = RoundedCornerShape(10.dp)),
                 ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(26.dp))
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("播放", style = MaterialTheme.typography.titleMedium)
                 }
                 if (detail.seriesId.isNotBlank()) {
                     OutlinedButton(
                         onClick = onOpenSeries,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
-                            .height(56.dp)
-                            .tvFocusScale(shape = RoundedCornerShape(12.dp)),
+                            .height(48.dp)
+                            .tvFocusScale(shape = RoundedCornerShape(10.dp)),
                     ) {
                         Icon(Icons.Filled.VideoLibrary, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
@@ -310,7 +312,11 @@ private fun TvSeriesContent(
 
     LazyColumn(
         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(start = 48.dp, end = 48.dp, bottom = 40.dp),
+        contentPadding = PaddingValues(
+            start = TvCardMetrics.PageGutter,
+            end = TvCardMetrics.PageGutter,
+            bottom = 24.dp,
+        ),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item(key = "header") {
@@ -346,19 +352,21 @@ private fun TvSeriesContent(
                 }
             }
         }
-        item(key = "episodes") {
-            if (season == null || season.episodes.isEmpty()) {
+        // 每集独立成 LazyColumn item：Lazy 的越界焦点搜索能在按上键时定位到
+        // 上一行并滚动到位；此前全部集塞在一个 item 里，焦点会越过列表
+        // 直接落到上方的 season tab 上。
+        val episodes = season?.episodes.orEmpty()
+        if (episodes.isEmpty()) {
+            item(key = "episodes_empty") {
                 Text("本季暂无剧集", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    season.episodes.forEach { episode ->
-                        TvEpisodeRow(
-                            episode = episode,
-                            posterUrl = tvArtwork(baseUrl, "/api/media/${episode.id}/poster"),
-                            onClick = { onPlayEpisode(episode.id) },
-                        )
-                    }
-                }
+            }
+        } else {
+            items(episodes, key = { "episode-${it.id}" }) { episode ->
+                TvEpisodeRow(
+                    episode = episode,
+                    posterUrl = tvArtwork(baseUrl, "/api/media/${episode.id}/poster"),
+                    onClick = { onPlayEpisode(episode.id) },
+                )
             }
         }
     }
@@ -371,11 +379,11 @@ private fun TvSeasonChip(
     requestInitialFocus: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(10.dp)
     var focused by remember { mutableStateOf(false) }
     Box(
         Modifier
-            .height(48.dp)
+            .height(40.dp)
             .then(if (requestInitialFocus) Modifier.tvRequestInitialFocus() else Modifier)
             .onFocusChanged { focused = it.isFocused || it.hasFocus }
             .clip(shape)
@@ -387,7 +395,7 @@ private fun TvSeasonChip(
                 },
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 22.dp),
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(

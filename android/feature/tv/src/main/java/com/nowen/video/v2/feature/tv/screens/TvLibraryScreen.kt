@@ -157,11 +157,11 @@ fun TvLibraryScreen(
         if (shouldLoadMore) viewModel.loadMore()
     }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 48.dp)) {
-        Spacer(Modifier.height(28.dp))
+    Column(Modifier.fillMaxSize().padding(horizontal = TvCardMetrics.PageGutter)) {
+        Spacer(Modifier.height(12.dp))
         Text("影视库", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             TvLibraryChip(
                 label = "全部媒体",
                 selected = state.selectedLibraryId == null,
@@ -176,7 +176,7 @@ fun TvLibraryScreen(
                 )
             }
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
         when {
             state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -189,7 +189,7 @@ fun TvLibraryScreen(
             else -> LazyVerticalGrid(
                 state = gridState,
                 columns = GridCells.Adaptive(minSize = TvCardMetrics.PosterWidth),
-                contentPadding = PaddingValues(bottom = 40.dp),
+                contentPadding = PaddingValues(bottom = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(TvCardMetrics.CardGap),
                 verticalArrangement = Arrangement.spacedBy(TvCardMetrics.RailGap),
             ) {
@@ -219,11 +219,11 @@ private fun TvLibraryChip(
     requestInitialFocus: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(10.dp)
     var focused by remember { mutableStateOf(false) }
     Box(
         Modifier
-            .height(48.dp)
+            .height(40.dp)
             .then(if (requestInitialFocus) Modifier.tvRequestInitialFocus() else Modifier)
             .onFocusChanged { focused = it.isFocused || it.hasFocus }
             .clip(shape)
@@ -235,7 +235,7 @@ private fun TvLibraryChip(
                 },
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 22.dp),
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(

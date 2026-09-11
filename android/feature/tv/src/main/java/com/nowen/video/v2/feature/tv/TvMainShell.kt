@@ -1,6 +1,9 @@
 package com.nowen.video.v2.feature.tv
 
+import android.app.Activity
 import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -56,6 +59,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -88,13 +92,17 @@ private val DirectionalKeys = setOf(
     Key.DirectionRight,
 )
 
+/** 首页连按两次返回退出的判定窗口。 */
+private const val DOUBLE_BACK_EXIT_WINDOW_MS = 2000L
+
 /** 焦点到达是否由用户方向键驱动（而非页面切换引起的焦点逃逸）。 */
 internal fun isDirectionalKeyDriven(lastDirectionalKeyAt: MutableLongState): Boolean =
     System.currentTimeMillis() - lastDirectionalKeyAt.longValue <= DIRECTIONAL_SELECT_WINDOW_MS
 
 /**
  * TV 主壳：左侧竖向导航栏 + 主内容区，替代手机版底部 Tab。
- * 导航目标最小 64dp 高、焦点高亮明确，适配遥控器操作。
+ * 导航目标 48dp 高、焦点高亮明确，适配遥控器操作；
+ * 宽度按标准 TV 逻辑宽度（约 960dp）校准，避免挤占内容区。
  */
 @Composable
 fun TvMainShell(viewModel: MainShellViewModel = hiltViewModel()) {
@@ -140,6 +148,22 @@ fun TvMainShell(viewModel: MainShellViewModel = hiltViewModel()) {
     // 播放页是沉浸式全屏页：收起侧边栏让画面占满整屏，
     // 也避免遥控器左键把焦点挪进侧边栏误触切换页面。
     val immersive = currentRoute?.startsWith("player/") == true
+
+    // 首页根节点连按两次返回才退出：第一次只提示，窗口内再按一次才退出。
+    // 仅在 Home 根节点启用——其它页面（详情/播放器/设置）由 NavHost 正常 pop，
+    // NavHost 的返回回调先于这里注册顺序分发，不受影响。
+    val backContext = LocalContext.current
+    val lastBackPressAt = remember { mutableLongStateOf(0L) }
+    BackHandler(enabled = currentRoute == TvTab.Home.route) {
+        val now = System.currentTimeMillis()
+        if (now - lastBackPressAt.longValue <= DOUBLE_BACK_EXIT_WINDOW_MS) {
+            (backContext as? Activity)?.finish()
+        } else {
+            lastBackPressAt.longValue = now
+            Toast.makeText(backContext, "再按一次返回键退出", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Row(
         Modifier
             .fillMaxSize()
@@ -194,7 +218,7 @@ private fun TvNavigationRail(
     val tabFocusRequesters = remember { TvTab.entries.associateWith { FocusRequester() } }
     Column(
         modifier = Modifier
-            .width(216.dp)
+            .width(148.dp)
             .fillMaxHeight()
             .background(NowenColors.DeepSurface)
             .focusProperties {
@@ -205,11 +229,11 @@ private fun TvNavigationRail(
             }
             .focusGroup()
             .onFocusChanged { railHoldsFocus.value = it.hasFocus }
-            .padding(horizontal = 18.dp, vertical = 28.dp),
+            .padding(horizontal = 14.dp, vertical = 20.dp),
     ) {
         TvRailBrand()
-        Spacer(Modifier.height(24.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(Modifier.height(18.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             TvTab.entries.forEach { tab ->
                 TvRailTabButton(
                     tab = tab,
@@ -232,23 +256,15 @@ private fun TvNavigationRail(
 
 @Composable
 private fun TvRailBrand() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(Brush.linearGradient(listOf(Color(0xFF8F7AFF), NowenColors.Lavender))),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("N", color = Color.White, style = MaterialTheme.typography.titleLarge)
-        }
-        Spacer(Modifier.width(11.dp))
-        Text(
-            "NOWEN VIDEO",
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+    // 148dp 窄栏放不下完整品牌文字，只保留 logo 避免截断。
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(RoundedCornerShape(11.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFF8F7AFF), NowenColors.Lavender))),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("N", color = Color.White, style = MaterialTheme.typography.titleMedium)
     }
 }
 
@@ -266,7 +282,7 @@ private fun TvRailTabButton(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(48.dp)
             .focusRequester(focusRequester)
             .then(if (requestInitialFocus) Modifier.tvRequestInitialFocus() else Modifier)
             .onFocusChanged {
@@ -286,25 +302,25 @@ private fun TvRailTabButton(
     ) {
         Box(
             Modifier
-                .width(5.dp)
-                .height(30.dp)
+                .width(4.dp)
+                .height(20.dp)
                 .padding(start = 0.dp)
-                .clip(RoundedCornerShape(3.dp))
+                .clip(RoundedCornerShape(2.dp))
                 .background(if (selected || focused) NowenColors.Lavender else Color.Transparent),
         )
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(12.dp))
         Icon(
             if (selected || focused) tab.selectedIcon else tab.icon,
             contentDescription = tab.label,
             tint = if (focused) MaterialTheme.colorScheme.onPrimary
             else if (selected) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(26.dp),
+            modifier = Modifier.size(22.dp),
         )
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(12.dp))
         Text(
             tab.label,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             color = if (focused) MaterialTheme.colorScheme.onPrimary
             else if (selected) MaterialTheme.colorScheme.onSurface
             else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -331,14 +347,14 @@ private fun TvRailFooter(
             .clip(shape)
             .background(if (focused) MaterialTheme.colorScheme.primary else Color.Transparent)
             .clickable(onClick = onSettings)
-            .padding(vertical = 12.dp, horizontal = 8.dp),
+            .padding(vertical = 8.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             Icons.Filled.Settings,
             contentDescription = "设置",
             tint = if (focused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(12.dp))
         Text(

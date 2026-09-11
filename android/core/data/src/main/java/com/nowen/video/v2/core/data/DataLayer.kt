@@ -312,7 +312,12 @@ data class SearchResponse(
     val media: List<MediaCard> = emptyList(),
     val series: List<MediaCard> = emptyList(),
 ) {
-    fun all(): List<MediaCard> = (data + media + series).distinctBy { it.resolvedId }
+    // series 数组的原始 JSON（服务端 model.Series）没有 type/media_type 字段，
+    // MediaCardSerializer 推断出的 type 为空，海报会被拼成 /api/media/:id/poster、
+    // 点击走电影详情，两者都 404。这里显式标记为 series（与 Web 端 SearchPage 一致），
+    // 让海报与导航走 /api/series/:id 系列端点。
+    fun all(): List<MediaCard> = (data + media + series.map { it.copy(type = "series") })
+        .distinctBy { it.resolvedId }
 }
 
 @Module
@@ -413,7 +418,16 @@ class NowenRepository @Inject constructor(
     }
 
     suspend fun search(query: String): Result<List<MediaCard>> = apiCall {
-        if (query.isBlank()) emptyList() else api.search(query.trim()).all()
+        if (query.isBlank()) {
+            emptyList()
+        } else {
+            // 与 Web 端一致（SearchPage 过滤 media_type === 'episode'）：搜索只展示
+            // 电影与剧集。media 数组里的 episode 命中来自"剧名出现在每集标题里"的
+            // 宽匹配，剧集本身已由 series 数组返回，单集统一过滤掉。
+            api.search(query.trim()).all().filterNot { card ->
+                card.type.equals("episode", ignoreCase = true)
+            }
+        }
     }
 
     suspend fun logout() = sessionStore.clearAuthentication()

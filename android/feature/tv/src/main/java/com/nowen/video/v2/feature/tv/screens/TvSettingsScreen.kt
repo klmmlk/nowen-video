@@ -70,15 +70,15 @@ fun TvSettingsScreen(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 48.dp),
+            .padding(horizontal = 28.dp),
     ) {
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             TvBackButton(onBack, Modifier.tvRequestInitialFocus())
-            Spacer(Modifier.width(20.dp))
+            Spacer(Modifier.width(16.dp))
             Text("设置", style = MaterialTheme.typography.headlineLarge)
         }
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(16.dp))
         TvSettingsPanel(title = "服务器", icon = Icons.Filled.Dns) {
             SettingRow(label = "名称", value = session.activeServer?.name ?: "未连接")
             SettingRow(label = "地址", value = session.activeServer?.baseUrl ?: "-")
@@ -94,19 +94,19 @@ fun TvSettingsScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Button(
                         onClick = ::onLogout,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
-                            .height(52.dp)
-                            .tvFocusScale(shape = RoundedCornerShape(12.dp)),
+                            .height(44.dp)
+                            .tvFocusScale(shape = RoundedCornerShape(10.dp)),
                     ) {
                         Text("确认退出登录")
                     }
                     OutlinedButton(
                         onClick = { confirmLogout = false },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
-                            .height(52.dp)
-                            .tvFocusScale(shape = RoundedCornerShape(12.dp)),
+                            .height(44.dp)
+                            .tvFocusScale(shape = RoundedCornerShape(10.dp)),
                     ) {
                         Text("取消")
                     }
@@ -114,10 +114,10 @@ fun TvSettingsScreen(
             } else {
                 Button(
                     onClick = { confirmLogout = true },
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier
-                        .height(52.dp)
-                        .tvFocusScale(shape = RoundedCornerShape(12.dp)),
+                        .height(44.dp)
+                        .tvFocusScale(shape = RoundedCornerShape(10.dp)),
                 ) {
                     Text("退出登录")
                 }
@@ -135,9 +135,9 @@ private fun TvSettingsPanel(
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(NowenColors.DeepSurface)
-            .padding(24.dp),
+            .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary)

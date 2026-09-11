@@ -53,15 +53,15 @@ fun TvProfileScreen(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 48.dp),
+            .padding(horizontal = 28.dp),
     ) {
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(12.dp))
         Text("我的", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
-                    .size(88.dp)
+                    .size(64.dp)
                     .clip(CircleShape)
                     .background(NowenColors.Lavender.copy(alpha = 0.18f)),
                 contentAlignment = Alignment.Center,
@@ -119,7 +119,7 @@ private fun TvProfileEntry(
             .clip(shape)
             .background(if (focused) MaterialTheme.colorScheme.primary else NowenColors.DeepSurface)
             .clickable(onClick = onClick)
-            .padding(horizontal = 22.dp, vertical = 18.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
