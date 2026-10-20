@@ -250,11 +250,10 @@ class ServerSessionStore @Inject constructor(
 
     private suspend fun restoreAuthentication(serverId: String): Pair<String?, UserProfile?> {
         val token = vault.readToken(serverId) ?: return null to null
-        val expiresAt = expirations[serverId] ?: 0L
-        if (expiresAt > 0L && expiresAt <= currentEpochSeconds()) {
-            clearPersistedAuthentication(serverId)
-            return null to null
-        }
+        // 过期不再清除：服务端 /api/auth/refresh 支持给"签名合法但已过期"的 token
+        // 续签（JWTAuthAllowExpired）。启动时照常恢复会话，首个请求会经
+        // SessionRefreshCoordinator 静默续签；只有续签被 401/403 拒绝才回到登录页。
+        // 之前"过期即删除"会让超过 token 有效期（7 天）未打开 App 的用户被强制重新登录。
         return token to accounts[serverId]
     }
 
@@ -434,7 +433,11 @@ class NowenRepository @Inject constructor(
 
     private suspend fun <T> apiCall(block: suspend () -> T): Result<T> = runCatching { block() }.recoverCatching {
         when (it) {
-            is HttpException -> if (it.code() == 401) throw UnauthorizedException() else throw ServerException(it.code(), it.message())
+            is HttpException -> {
+                val detail = it.serverErrorMessage()
+                if (it.code() == 401) throw UnauthorizedException(detail ?: "登录状态已失效")
+                throw ServerException(it.code(), detail ?: it.message())
+            }
             is IOException -> throw NetworkException(it.message ?: "网络不可用")
             else -> throw it
         }
@@ -442,6 +445,26 @@ class NowenRepository @Inject constructor(
 }
 
 internal fun currentEpochSeconds(): Long = System.currentTimeMillis() / 1_000L
+
+/** 服务端错误响应的通用信封：gin.H{"error": "..."}，部分端点用 message。 */
+@Serializable
+private data class ApiErrorBody(val error: String? = null, val message: String? = null)
+
+// 仅用于解析错误响应体的小工具实例；错误体是服务端生成的极简 JSON，宽松解析即可。
+private val apiErrorJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
+/**
+ * 提取服务端返回的原始错误文案（如"用户名或密码错误"）。
+ * 之前所有 401 一律映射为"登录状态已失效"，在登录页输错密码也会显示这句话，
+ * 用户会误以为登录功能坏了；403（账号被禁用）则只显示 HTTP 短语。
+ */
+internal fun HttpException.serverErrorMessage(): String? = runCatching {
+    val raw = response()?.errorBody()?.string().orEmpty()
+    if (raw.isBlank()) return null
+    val body = apiErrorJson.decodeFromString<ApiErrorBody>(raw)
+    body.error?.takeIf(String::isNotBlank)
+        ?: body.message?.takeIf(String::isNotBlank)
+}.getOrNull()
 
 private fun Throwable.asConnectionFailure(): Throwable = when (this) {
     is IllegalArgumentException -> this
@@ -459,6 +482,6 @@ private fun Throwable.asConnectionFailure(): Throwable = when (this) {
     else -> IOException(message?.takeIf { it.isNotBlank() } ?: "连接失败，请确认服务器地址和网络状态", this)
 }
 
-class UnauthorizedException : IllegalStateException("登录状态已失效")
+class UnauthorizedException(message: String = "登录状态已失效") : IllegalStateException(message)
 class NetworkException(message: String) : IOException(message)
 class ServerException(val code: Int, message: String) : IOException(message)

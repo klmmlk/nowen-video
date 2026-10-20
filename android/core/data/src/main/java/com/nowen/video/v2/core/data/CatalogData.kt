@@ -222,7 +222,10 @@ private fun MediaDetail.withCanonicalImageRoutes(): MediaDetail = copy(
 )
 
 internal fun mapApiError(error: Throwable): Throwable = when (error) {
-    is HttpException -> if (error.code() == 401) UnauthorizedException() else ServerException(error.code(), error.message())
+    is HttpException -> {
+        val detail = error.serverErrorMessage()
+        if (error.code() == 401) UnauthorizedException(detail ?: "登录状态已失效") else ServerException(error.code(), detail ?: error.message())
+    }
     is IOException -> NetworkException(error.message ?: "网络不可用")
     else -> error
 }

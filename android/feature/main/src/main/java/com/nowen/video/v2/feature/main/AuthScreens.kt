@@ -47,6 +47,9 @@ class LoginViewModel @Inject constructor(
 
     fun login() {
         val current = _state.value
+        // TV 端登录按钮 loading 期间保持可聚焦可点击（禁用会导致焦点跳回输入框
+        // 弹出输入法），防重复提交在这里兜底。
+        if (current.loading) return
         if (current.username.isBlank() || current.password.isBlank()) {
             _state.update { it.copy(error = "请输入用户名和密码") }
             return

@@ -1,5 +1,6 @@
 package com.nowen.video.v2.feature.tv.screens
 
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,8 +24,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -107,7 +112,8 @@ fun TvServerSetupScreen(viewModel: ServerSetupViewModel = hiltViewModel()) {
         Spacer(Modifier.height(24.dp))
         Button(
             onClick = viewModel::connect,
-            enabled = !state.loading,
+            // loading 期间不禁用（防重入由 connectCandidate 的 loading 守卫保证），
+            // 避免按钮失焦后焦点跳回输入框弹出输入法。
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier.height(48.dp).width(180.dp),
         ) {
@@ -157,9 +163,11 @@ private fun DiscoveredServerRow(name: String, url: String, onClick: () -> Unit) 
 }
 
 /** TV 登录页：复用手机版 LoginViewModel，仅调整布局密度。 */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun TvLoginScreen(viewModel: LoginViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
+    val loginButtonFocusRequester = remember { FocusRequester() }
 
     TvOnboardingScaffold(title = "欢迎回来", subtitle = "登录 ${viewModel.serverName}") {
         OutlinedTextField(
@@ -179,12 +187,23 @@ fun TvLoginScreen(viewModel: LoginViewModel = hiltViewModel()) {
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(24.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier
+                // 全宽输入框正下方并排放两个按钮时，D-pad 方向搜索按"水平中心距离"
+                // 选候选，会落到与输入框中心对齐的"切换服务器"。focusGroup + enter
+                // 让焦点从任意方向进入该行时固定落在"登录"上（与 TvMainShell
+                // 侧边栏同一模式）。
+                .focusProperties { enter = { loginButtonFocusRequester } }
+                .focusGroup(),
+        ) {
             Button(
                 onClick = viewModel::login,
-                enabled = !state.loading,
+                // loading 期间不禁用按钮：禁用会让按钮失去可聚焦性，焦点被系统
+                // 重新分配到第一个输入框并弹出输入法。防重复提交由
+                // LoginViewModel.login() 的 loading 守卫保证。
                 shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.height(48.dp).width(180.dp),
+                modifier = Modifier.focusRequester(loginButtonFocusRequester).height(48.dp).width(180.dp),
             ) {
                 if (state.loading) {
                     CircularProgressIndicator(Modifier.height(22.dp).width(22.dp), strokeWidth = 2.dp)
@@ -228,6 +247,7 @@ class TvPasswordViewModel @Inject constructor(
 
     fun submit() {
         val current = _state.value
+        if (current.loading) return
         if (current.oldPassword.isBlank() || current.newPassword.isBlank()) {
             _state.update { it.copy(error = "请输入旧密码和新密码") }
             return
@@ -280,7 +300,6 @@ fun TvForcePasswordScreen(viewModel: TvPasswordViewModel = hiltViewModel()) {
         Spacer(Modifier.height(24.dp))
         Button(
             onClick = viewModel::submit,
-            enabled = !state.loading,
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier.height(48.dp).width(180.dp),
         ) {

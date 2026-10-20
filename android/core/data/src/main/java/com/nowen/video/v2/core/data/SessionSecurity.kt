@@ -79,8 +79,12 @@ class SessionRefreshCoordinator @Inject constructor(
         val now = currentEpochSeconds()
         val expiresAt = sessionStore.expiresAtEpochSeconds(server.id)
         if (expiresAt > 0L && expiresAt <= now) {
-            sessionStore.clearAuthentication()
-            return@withLock null
+            // token 已过期：服务端 /api/auth/refresh（JWTAuthAllowExpired 中间件）
+            // 专门允许"签名合法但已过期"的 token 续签，目的就是避免过期即被踢回
+            // 登录页。这里必须先尝试续签；只有续签被 401/403 拒绝（改过密码、账号
+            // 被禁）时 refresh() 内部才会清除会话。网络失败时返回旧 token，由本次
+            // 请求自身的 401 处理兜底。
+            return@withLock refresh(server.baseUrl, currentToken)
         }
         if (!force && !shouldRefreshSession(expiresAt, now)) {
             return@withLock currentToken
