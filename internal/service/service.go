@@ -435,6 +435,7 @@ func NewServices(repos *repository.Repositories, cfg *config.Config, logger *zap
 	svcs.Stream.SetVFSManager(vfsManager)
 	preprocessService.SetVFSManager(vfsManager)
 	nfoService.SetVFSManager(vfsManager)
+	svcs.Library.SetVFSManager(vfsManager)
 
 	// 延迟注入：扫描完成后自动触发预处理（受系统设置控制）
 	scanner.SetOnScanComplete(func(libraryID string) {

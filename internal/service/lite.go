@@ -11,8 +11,9 @@ import (
 //
 // The lite profile keeps the complete movie/series experience while avoiding
 // startup of unrelated subsystems such as music, photos, federation, plugins,
-// preprocessing workers, Emby compatibility, adult scraping and AI scene
-// analysis. The full profile remains available through cmd/server.
+// preprocessing workers, adult scraping and AI scene
+// analysis. Emby compatibility reuses these services at the HTTP routing layer.
+// The full profile remains available through cmd/server.
 func NewLiteServices(repos *repository.Repositories, cfg *config.Config, logger *zap.SugaredLogger) *Services {
 	mediaExecution, err := NewMediaExecutionService(repos.DB(), cfg, logger)
 	if err != nil {
@@ -60,6 +61,7 @@ func NewLiteServices(repos *repository.Repositories, cfg *config.Config, logger 
 	vfsManager := NewVFSManager(logger)
 	scanner.SetVFSManager(vfsManager)
 	nfoService.SetVFSManager(vfsManager)
+	libraryService.SetVFSManager(vfsManager)
 
 	// Remote storage remains available but is initialized only when explicitly
 	// configured, so local-library users do not pay for remote connection probes.

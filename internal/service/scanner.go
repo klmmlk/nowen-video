@@ -96,6 +96,19 @@ func isStillImageMedia(media *model.Media) bool {
 	return stillImageVideoCodecs[strings.ToLower(media.VideoCodec)] && media.Duration <= 0.1
 }
 
+// isConfiguredLibraryRoot protects a user-selected hidden root while excluding hidden children.
+func isConfiguredLibraryRoot(library *model.Library, path string) bool {
+	if library == nil {
+		return false
+	}
+	for _, root := range library.AllPaths() {
+		if filepath.Clean(root) == filepath.Clean(path) {
+			return true
+		}
+	}
+	return false
+}
+
 // extrasExcludeDirs Emby/Kodi 标准的非正片内容目录名（小写）
 var extrasExcludeDirs = map[string]bool{
 	"extras":            true,
@@ -502,7 +515,7 @@ func (s *ScannerService) SetVFSManager(vfsMgr *VFSManager) {
 // walkLibraryPath 根据媒体库路径前缀自动选择 VFS 遍历
 // 返回的 path 是完整路径（LocalFS 返回原生路径；WebDAVFS 返回 webdav:// 前缀路径）
 func (s *ScannerService) walkLibraryPath(root string, fn filepath.WalkFunc) error {
-	if s.vfsMgr != nil && IsWebDAVPath(root) {
+	if s.vfsMgr != nil && IsRemotePath(root) {
 		return s.vfsMgr.Walk(root, fn)
 	}
 	return filepath.Walk(root, fn)
@@ -510,7 +523,7 @@ func (s *ScannerService) walkLibraryPath(root string, fn filepath.WalkFunc) erro
 
 // statLibraryPath 根据路径前缀选择合适的 Stat 实现
 func (s *ScannerService) statLibraryPath(p string) (os.FileInfo, error) {
-	if s.vfsMgr != nil && IsWebDAVPath(p) {
+	if s.vfsMgr != nil && IsRemotePath(p) {
 		return s.vfsMgr.Stat(p)
 	}
 	return os.Stat(p)
@@ -518,7 +531,7 @@ func (s *ScannerService) statLibraryPath(p string) (os.FileInfo, error) {
 
 // readDirLibraryPath 根据路径前缀选择合适的 ReadDir 实现
 func (s *ScannerService) readDirLibraryPath(p string) ([]os.DirEntry, error) {
-	if s.vfsMgr != nil && IsWebDAVPath(p) {
+	if s.vfsMgr != nil && IsRemotePath(p) {
 		entries, err := s.vfsMgr.ReadDir(p)
 		if err != nil {
 			return nil, err
@@ -533,7 +546,7 @@ func (s *ScannerService) readDirLibraryPath(p string) ([]os.DirEntry, error) {
 
 // vfsJoin 拼接路径：对 webdav:// 前缀的路径使用正斜杠，避免 filepath.Join 在 Windows 下把前缀破坏为 webdav:\
 func vfsJoin(base, name string) string {
-	if IsWebDAVPath(base) {
+	if IsRemotePath(base) {
 		base = strings.TrimRight(base, "/")
 		return base + "/" + strings.TrimLeft(name, "/")
 	}
@@ -564,7 +577,7 @@ func (s *ScannerService) collectMediaRoots(root string, kind string) []string {
 		seen[path] = true
 
 		base := filepath.Base(path)
-		if isHiddenOrCacheDirName(base) || isXiaoyaSkipDir(base) || extrasExcludeDirs[strings.ToLower(base)] {
+		if (depth > 0 && isHiddenOrCacheDirName(base)) || isXiaoyaSkipDir(base) || extrasExcludeDirs[strings.ToLower(base)] {
 			s.logger.Debugf("[xiaoya] 跳过特殊目录: %s", path)
 			return
 		}
@@ -828,7 +841,7 @@ func (s *ScannerService) scanMovieLibrary(library *model.Library) (int, error) {
 		if info.IsDir() {
 			// 跳过隐藏目录与 NAS 缓存目录（如 fnOS .@__thumb、群晖 @eaDir），
 			// 其中的"视频文件"实际是缩略图/预览缓存
-			if isHiddenOrCacheDirName(filepath.Base(path)) {
+			if isHiddenOrCacheDirName(filepath.Base(path)) && !isConfiguredLibraryRoot(library, path) {
 				return filepath.SkipDir
 			}
 			// 跳过 extras/trailers 等非正片目录（P0: 兼容 Emby 标准）
@@ -1057,6 +1070,11 @@ func (s *ScannerService) scanMovieLibrary(library *model.Library) (int, error) {
 	// 【火力全开 A】处理已更新文件：probe 已在上面并行完成，这里只做字幕扫描 + DB 更新
 	if len(updateList) > 0 {
 		for _, pm := range updateList {
+			// Never overwrite a valid indexed record with a disguised still image; manual cleanup of previously indexed ghosts remains separate.
+			if isStillImageMedia(pm.media) {
+				s.logger.Warnf("跳过疑似静态图片的已有媒体更新，保留原记录待人工核查: %s", pm.path)
+				continue
+			}
 			s.scanExternalSubtitles(pm.media)
 			if err := s.mediaRepo.Update(pm.media); err != nil {
 				s.logger.Warnf("更新媒体失败: %s, 错误: %v", pm.path, err)
@@ -1188,7 +1206,7 @@ func (s *ScannerService) findOrganizedHardlinkRecord(library *model.Library, sou
 		return nil, false
 	}
 	outputDir := strings.TrimSpace(library.OrganizeOutputDir)
-	if outputDir == "" || IsWebDAVPath(sourcePath) || IsWebDAVPath(outputDir) {
+	if outputDir == "" || IsRemotePath(sourcePath) || IsRemotePath(outputDir) {
 		return nil, false
 	}
 	cleanSource := filepath.Clean(sourcePath)
@@ -3065,12 +3083,15 @@ func (s *ScannerService) probeMediaInfo(media *model.Media) {
 		return
 	}
 
+	// 远程存储路径（webdav:// / alist:// / s3://）解析为 HTTP 直链供 ffprobe 访问
+	probeTarget := ResolveRemoteFFmpegURL(s.cfg, media.FilePath)
+
 	cmd := exec.Command(s.cfg.App.FFprobePath,
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_format",
 		"-show_streams",
-		media.FilePath,
+		probeTarget,
 	)
 
 	output, err := cmd.Output()

@@ -186,7 +186,7 @@ func (s *PreprocessService) SubmitMedia(mediaID string, priority int, force bool
 
 	// V2.1: WebDAV 路径 → HTTP URL（FFmpeg 会直接流式读取，不需要全文件下载）
 	inputPath := media.FilePath
-	if IsWebDAVPath(inputPath) {
+	if IsRemotePath(inputPath) {
 		// 通过 VFS 检查文件存在性
 		if s.vfsMgr != nil {
 			if _, err := s.vfsMgr.Stat(inputPath); err != nil {

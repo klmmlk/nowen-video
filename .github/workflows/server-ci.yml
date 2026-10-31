@@ -18,6 +18,8 @@ on:
       - 'internal/service/playback_planner_test.go'
       - 'internal/service/playback_startup*.go'
       - 'internal/service/media_probe_warmup*.go'
+      - 'internal/service/media.go'
+      - 'internal/service/media_tech_probe*.go'
       - 'internal/service/transcode*.go'
       - 'internal/service/stream_artifacts.go'
       - 'internal/service/ondemand.go'
@@ -27,6 +29,9 @@ on:
       - 'internal/service/file_watcher.go'
       - 'internal/handler/lite.go'
       - 'internal/handler/handler.go'
+      - 'internal/handler/emby/**'
+      - 'internal/config/**'
+      - 'internal/service/stream*.go'
       - 'internal/handler/stream_artifacts.go'
       - 'internal/handler/stream_startup_bridge.go'
       - 'internal/handler/task_center.go'
@@ -142,6 +147,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: npm run test:media-tech
       - name: Validate distributed highlight desktop contract
         run: |
           grep -Fq 'mod highlight_compute;' ../desktop/src-tauri/src/main.rs

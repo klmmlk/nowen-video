@@ -42,7 +42,7 @@ func (h *StreamHandler) Direct(c *gin.Context) {
 	c.Header("Accept-Ranges", "bytes")
 	c.Header("Cache-Control", "public, max-age=86400")
 
-	if service.IsWebDAVPath(filePath) {
+	if service.IsRemotePath(filePath) {
 		vfsFile, err := h.streamService.OpenMediaFile(filePath)
 		if err != nil {
 			h.logger.Warnf("WebDAV 打开文件失败: %s, 错误: %v", filePath, err)
@@ -132,7 +132,7 @@ func (h *StreamHandler) Poster(c *gin.Context) {
 		return
 	}
 
-	if service.IsWebDAVPath(posterPath) {
+	if service.IsRemotePath(posterPath) {
 		vfsFile, openErr := h.streamService.OpenMediaFile(posterPath)
 		if openErr != nil {
 			c.Header("Content-Type", "image/svg+xml")

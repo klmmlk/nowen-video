@@ -95,7 +95,10 @@ func (h *StorageHandler) UpdateAlistConfig(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新失败: " + err.Error()})
 		return
 	}
-	h.cfg.Storage.Alist = newCfg
+	// 持久化到配置文件，避免重启后丢失
+	if err := h.cfg.SaveStorageAlistConfig(newCfg); err != nil {
+		h.logger.Warnf("Alist 配置已生效但写盘失败: %v", err)
+	}
 	c.JSON(http.StatusOK, gin.H{"message": "Alist 配置已更新"})
 }
 
@@ -223,7 +226,10 @@ func (h *StorageHandler) UpdateS3Config(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新失败: " + err.Error()})
 		return
 	}
-	h.cfg.Storage.S3 = newCfg
+	// 持久化到配置文件，避免重启后丢失
+	if err := h.cfg.SaveStorageS3Config(newCfg); err != nil {
+		h.logger.Warnf("S3 配置已生效但写盘失败: %v", err)
+	}
 	c.JSON(http.StatusOK, gin.H{"message": "S3 配置已更新"})
 }
 

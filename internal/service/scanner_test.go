@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/nowen-video/nowen-video/internal/model"
+	"go.uber.org/zap"
 )
 
 func TestParseEpisodeInfo(t *testing.T) {
@@ -520,17 +521,17 @@ func TestSeasonZeroSupport(t *testing.T) {
 // TestIsHiddenOrCacheDirName 隐藏目录与 NAS 缓存目录名判断
 func TestIsHiddenOrCacheDirName(t *testing.T) {
 	cases := map[string]bool{
-		".@__thumb":         true, // 飞牛 fnOS 缩略图缓存
-		"@eaDir":            true, // 群晖缩略图/元数据
-		"#recycle":          true, // 群晖回收站
-		".Trashes":          true, // macOS
-		".Spotlight-V100":   true, // macOS 索引
-		"$RECYCLE.BIN":      true, // Windows 回收站
+		".@__thumb":                 true, // 飞牛 fnOS 缩略图缓存
+		"@eaDir":                    true, // 群晖缩略图/元数据
+		"#recycle":                  true, // 群晖回收站
+		".Trashes":                  true, // macOS
+		".Spotlight-V100":           true, // macOS 索引
+		"$RECYCLE.BIN":              true, // Windows 回收站
 		"System Volume Information": true,
-		"Season 01":         false,
-		"布鲁伊第一季":            false,
-		"extras":            false, // 由 extrasExcludeDirs 单独处理
-		"":                  false,
+		"Season 01":                 false,
+		"布鲁伊第一季":                    false,
+		"extras":                    false, // 由 extrasExcludeDirs 单独处理
+		"":                          false,
 	}
 	for name, want := range cases {
 		if got := isHiddenOrCacheDirName(name); got != want {
@@ -609,6 +610,48 @@ func TestIsStillImageMedia(t *testing.T) {
 		media := &model.Media{VideoCodec: c.codec, Duration: c.duration}
 		if got := isStillImageMedia(media); got != c.want {
 			t.Errorf("%s: isStillImageMedia(codec=%q, dur=%v) = %v, want %v", c.desc, c.codec, c.duration, got, c.want)
+		}
+	}
+}
+
+// TestExplicitHiddenLibraryRoots ensures user-selected dot-prefixed library roots stay scanable.
+func TestExplicitHiddenLibraryRoots(t *testing.T) {
+	root := filepath.Join(t.TempDir(), ".my-movies")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "Movie.mp4"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	library := &model.Library{Path: root}
+	if !isConfiguredLibraryRoot(library, root) {
+		t.Fatal("explicit hidden root must be allowed")
+	}
+	if isConfiguredLibraryRoot(library, filepath.Join(root, ".@__thumb")) {
+		t.Fatal("cache descendant must not be root")
+	}
+	scanner := &ScannerService{logger: zap.NewNop().Sugar()}
+	roots := scanner.collectMediaRoots(root, "movie")
+	if len(roots) != 1 || filepath.Clean(roots[0]) != filepath.Clean(root) {
+		t.Fatalf("hidden configured root dropped: %#v", roots)
+	}
+}
+
+func TestWatcherHiddenChildrenRelativeToRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), ".media")
+	watcher := &FileWatcherService{watching: map[string]string{root: "library-1"}}
+	if watcher.pathIsInExcludedSubdir(root) {
+		t.Fatal("explicit hidden root excluded")
+	}
+	if watcher.pathIsInExcludedSubdir(filepath.Join(root, "Season 1", "episode.mp4")) {
+		t.Fatal("normal child excluded")
+	}
+	for _, name := range []string{".@__thumb", "@eaDir", "#recycle"} {
+		if !watcher.pathIsInExcludedSubdir(filepath.Join(root, name)) {
+			t.Errorf("hidden directory not excluded: %s", name)
+		}
+		if !watcher.pathIsInExcludedSubdir(filepath.Join(root, name, "fake.mp4")) {
+			t.Errorf("cache video not excluded: %s", name)
 		}
 	}
 }

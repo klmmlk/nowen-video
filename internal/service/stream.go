@@ -120,7 +120,7 @@ func (s *StreamService) SetVFSManager(vfsMgr *VFSManager) {
 
 // statMediaFile 返回文件判断：同时支持本地路径和 webdav:// 路径
 func (s *StreamService) statMediaFile(p string) (os.FileInfo, error) {
-	if s.vfsMgr != nil && IsWebDAVPath(p) {
+	if s.vfsMgr != nil && IsRemotePath(p) {
 		return s.vfsMgr.Stat(p)
 	}
 	return os.Stat(p)
@@ -129,7 +129,7 @@ func (s *StreamService) statMediaFile(p string) (os.FileInfo, error) {
 // OpenMediaFile 打开媒体文件（支持 WebDAV 与本地路径）
 // V2.1: 供 handler 层在 webdav:// 路径下通过 VFS 流式服务文件
 func (s *StreamService) OpenMediaFile(p string) (VFSFile, error) {
-	if s.vfsMgr != nil && IsWebDAVPath(p) {
+	if s.vfsMgr != nil && IsRemotePath(p) {
 		return s.vfsMgr.Open(p)
 	}
 	f, err := os.Open(p)
@@ -198,11 +198,23 @@ func (s *StreamService) ShouldRemux(media *model.Media, userAgent string) bool {
 // ClientSupportsHEVC 粗略判断客户端是否能硬解 HEVC。
 // 主要用于返回 MediaSource 时选择是否标记支持 DirectPlay。
 // Safari 11+/Edge Chromium/Chrome 108+ 都支持 HEVC 硬解。
+//
+// 已识别的第三方客户端：
+//   - Infuse（Apple 全平台）
+//   - Hills（Emby/Jellyfin 客户端，Android + Windows，内置 MPV 内核，另支持 HDR/DV/AV1）
+//   - Yamby（Emby 客户端，Android，内置 MPV 内核，支持 4K 硬解）
+//
+// Hills / Yamby 必须列入白名单：它们的 UA 不含 exoplayer/safari/edg，
+// 若不识别会被当作"未知 Web 客户端"而把 HEVC 片源降级为 HLS 转码。
 func (s *StreamService) ClientSupportsHEVC(userAgent string) bool {
 	uaLower := strings.ToLower(userAgent)
 	switch {
 	case strings.Contains(uaLower, "infuse"):
 		return true // Infuse 全平台硬解 HEVC
+	case strings.Contains(uaLower, "hills"):
+		return true // Hills（Emby/Jellyfin，MPV 内核）
+	case strings.Contains(uaLower, "yamby"):
+		return true // Yamby（Emby，MPV 内核）
 	case strings.Contains(uaLower, "safari") && !strings.Contains(uaLower, "chrome"):
 		return true // 原生 Safari（非 Chromium 内核）
 	case strings.Contains(uaLower, "edg/"):
@@ -402,7 +414,7 @@ func (s *StreamService) GetDirectStreamInfo(mediaID string) (string, string, err
 
 // vfsJoinPath 路径拼接：对 webdav:// 使用正斜杠（避免 Windows 下 filepath.Join 破坏前缀）
 func vfsJoinPath(base, name string) string {
-	if IsWebDAVPath(base) {
+	if IsRemotePath(base) {
 		base = strings.TrimRight(base, "/")
 		return base + "/" + strings.TrimLeft(name, "/")
 	}
@@ -411,9 +423,10 @@ func vfsJoinPath(base, name string) string {
 
 // vfsDir 目录提取：对 webdav:// 使用正斜杠规则
 func vfsDir(p string) string {
-	if IsWebDAVPath(p) {
+	if IsRemotePath(p) {
 		i := strings.LastIndex(p, "/")
-		if i <= len("webdav:/") { // 保护 webdav:// 前缀
+		// 保护 scheme:// 前缀（webdav:// 与 alist:// 均为 8 字符，s3:// 更短）
+		if schemeEnd := strings.Index(p, "://"); i <= schemeEnd+2 {
 			return p
 		}
 		return p[:i]
@@ -483,6 +496,23 @@ func (s *StreamService) GetPosterPath(mediaID string) (string, error) {
 	}
 
 	return "", nil
+}
+
+// GetLogoPath returns the persisted ClearLogo path for a media item.
+// Unlike poster lookup it never probes neighboring artwork, preventing unrelated
+// local images from being mistaken for a transparent title logo.
+func (s *StreamService) GetLogoPath(mediaID string) (string, error) {
+	media, err := s.mediaRepo.FindByID(mediaID)
+	if err != nil {
+		return "", ErrMediaNotFound
+	}
+	if media.LogoPath == "" {
+		return "", nil
+	}
+	if _, err := s.statMediaFile(media.LogoPath); err != nil {
+		return "", nil
+	}
+	return media.LogoPath, nil
 }
 
 // ==================== STRM 远程流代理 ====================

@@ -36,7 +36,7 @@ func (s *NFOService) SetVFSManager(vfsMgr *VFSManager) {
 
 // readFile 读取文件（支持 webdav://）
 func (s *NFOService) readFile(p string) ([]byte, error) {
-	if s.vfsMgr != nil && IsWebDAVPath(p) {
+	if s.vfsMgr != nil && IsRemotePath(p) {
 		f, err := s.vfsMgr.Open(p)
 		if err != nil {
 			return nil, err
@@ -49,7 +49,7 @@ func (s *NFOService) readFile(p string) ([]byte, error) {
 
 // statPath 获取文件信息（支持 webdav://）
 func (s *NFOService) statPath(p string) (os.FileInfo, error) {
-	if s.vfsMgr != nil && IsWebDAVPath(p) {
+	if s.vfsMgr != nil && IsRemotePath(p) {
 		return s.vfsMgr.Stat(p)
 	}
 	return os.Stat(p)
@@ -57,7 +57,7 @@ func (s *NFOService) statPath(p string) (os.FileInfo, error) {
 
 // readDir 读取目录（支持 webdav://）
 func (s *NFOService) readDir(p string) ([]os.DirEntry, error) {
-	if s.vfsMgr != nil && IsWebDAVPath(p) {
+	if s.vfsMgr != nil && IsRemotePath(p) {
 		entries, err := s.vfsMgr.ReadDir(p)
 		if err != nil {
 			return nil, err
@@ -71,7 +71,7 @@ func (s *NFOService) readDir(p string) ([]os.DirEntry, error) {
 
 // joinPath 路径拼接（webdav:// 用正斜杠）
 func (s *NFOService) joinPath(base, name string) string {
-	if IsWebDAVPath(base) {
+	if IsRemotePath(base) {
 		base = strings.TrimRight(base, "/")
 		return base + "/" + strings.TrimLeft(name, "/")
 	}
@@ -80,9 +80,10 @@ func (s *NFOService) joinPath(base, name string) string {
 
 // dirOf 提取目录（webdav:// 用正斜杠规则）
 func (s *NFOService) dirOf(p string) string {
-	if IsWebDAVPath(p) {
+	if IsRemotePath(p) {
 		i := strings.LastIndex(p, "/")
-		if i <= len("webdav:/") {
+		// 保护 scheme:// 前缀（webdav:// 与 alist:// 均为 8 字符，s3:// 更短）
+		if schemeEnd := strings.Index(p, "://"); i <= schemeEnd+2 {
 			return p
 		}
 		return p[:i]

@@ -68,7 +68,7 @@ type Handlers struct {
 func NewHandlers(services *service.Services, repos *repository.Repositories, cfg *config.Config, logger *zap.SugaredLogger) *Handlers {
 	h := &Handlers{
 		Auth:    &AuthHandler{authService: services.Auth, serverName: cfg.Emby.ServerName, logger: logger},
-		Library: &LibraryHandler{libService: services.Library, permSvc: services.Permission, logger: logger},
+		Library: &LibraryHandler{libService: services.Library, permSvc: services.Permission, vfsMgr: services.VFS, logger: logger},
 		Media:   &MediaHandler{mediaService: services.Media, personRepo: repos.Person, mediaPersonRepo: repos.MediaPerson, logger: logger},
 		Series:  &SeriesHandler{seriesService: services.Series, mediaPersonRepo: repos.MediaPerson, logger: logger},
 		Stream: NewArtifactStreamHandler(&StreamHandler{
