@@ -31,7 +31,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
 FROM alpine:3.24
 ARG TARGETARCH
 ARG NOWEN_VERSION=0.1.0
-ARG FFMPEG_VERSION=8.1.2-r0
+ARG FFMPEG_VERSION=8.1.3-r0
 
 # Keep the runtime dependency surface minimal. Alpine's BusyBox already
 # provides the health-check client and standard process utilities we need.
@@ -40,8 +40,8 @@ RUN apk add --no-cache \
       tzdata \
       ca-certificates \
       su-exec \
-    && ffmpeg -version | head -n 1 | grep -F "ffmpeg version 8.1.2" \
-    && ffprobe -version | head -n 1 | grep -F "ffprobe version 8.1.2"
+    && ffmpeg -version | head -n 1 | grep -F "ffmpeg version 8.1.3" \
+    && ffprobe -version | head -n 1 | grep -F "ffprobe version 8.1.3"
 
 # Hardware acceleration drivers are part of the official image because direct
 # play, remux and on-demand fallback transcoding are core playback capabilities.
