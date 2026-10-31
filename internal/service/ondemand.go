@@ -25,7 +25,7 @@ type AudioTrackInfo struct {
 }
 
 func probeAudioTracks(media *model.Media, ffprobePath string, logger *zap.SugaredLogger) []AudioTrackInfo {
-	if media == nil || media.StreamURL != "" || IsWebDAVPath(media.FilePath) {
+	if media == nil || media.StreamURL != "" || IsRemotePath(media.FilePath) {
 		return nil
 	}
 	if _, err := os.Stat(media.FilePath); err != nil {

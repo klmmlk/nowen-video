@@ -84,7 +84,7 @@ func (s *StreamService) ManagedRemuxStream(mediaID string, w http.ResponseWriter
 	}
 
 	inputPath := media.FilePath
-	if IsWebDAVPath(inputPath) {
+	if IsRemotePath(inputPath) {
 		inputPath = ResolveRemoteFFmpegURL(s.cfg, inputPath)
 	} else if _, err := os.Stat(inputPath); err != nil {
 		return fmt.Errorf("媒体文件不可访问: %w", err)

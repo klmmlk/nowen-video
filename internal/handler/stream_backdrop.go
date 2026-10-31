@@ -55,7 +55,7 @@ func (h *StreamHandler) Backdrop(c *gin.Context) {
 		return
 	}
 
-	if service.IsWebDAVPath(backdropPath) {
+	if service.IsRemotePath(backdropPath) {
 		vfsFile, openErr := h.streamService.OpenMediaFile(backdropPath)
 		if openErr != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "媒体背景图不可用"})

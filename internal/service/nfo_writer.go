@@ -53,7 +53,7 @@ func (s *NFOService) WriteMediaNFO(mediaFilePath string, media *model.Media, peo
 	nfoPath := mediaNFOPath(mediaFilePath)
 
 	// 写入文件（不支持 webdav:// 写入，仅本地）
-	if IsWebDAVPath(nfoPath) {
+	if IsRemotePath(nfoPath) {
 		return "", fmt.Errorf("不支持向 webdav:// 路径写入 NFO 文件")
 	}
 
@@ -88,7 +88,7 @@ func (s *NFOService) WriteAdultNFO(mediaFilePath string, media *model.Media, met
 	ext := filepath.Ext(mediaFilePath)
 	nfoPath := strings.TrimSuffix(mediaFilePath, ext) + ".nfo"
 
-	if IsWebDAVPath(nfoPath) {
+	if IsRemotePath(nfoPath) {
 		return "", fmt.Errorf("不支持向 webdav:// 路径写入 NFO 文件")
 	}
 
@@ -115,7 +115,7 @@ func (s *NFOService) WriteTVShowNFO(dir string, series *model.Series) (string, e
 
 	nfoPath := filepath.Join(dir, "tvshow.nfo")
 
-	if IsWebDAVPath(nfoPath) {
+	if IsRemotePath(nfoPath) {
 		return "", fmt.Errorf("不支持向 webdav:// 路径写入 NFO 文件")
 	}
 

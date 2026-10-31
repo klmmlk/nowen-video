@@ -120,7 +120,7 @@ func (s *StreamService) SetVFSManager(vfsMgr *VFSManager) {
 
 // statMediaFile 返回文件判断：同时支持本地路径和 webdav:// 路径
 func (s *StreamService) statMediaFile(p string) (os.FileInfo, error) {
-	if s.vfsMgr != nil && IsWebDAVPath(p) {
+	if s.vfsMgr != nil && IsRemotePath(p) {
 		return s.vfsMgr.Stat(p)
 	}
 	return os.Stat(p)
@@ -129,7 +129,7 @@ func (s *StreamService) statMediaFile(p string) (os.FileInfo, error) {
 // OpenMediaFile 打开媒体文件（支持 WebDAV 与本地路径）
 // V2.1: 供 handler 层在 webdav:// 路径下通过 VFS 流式服务文件
 func (s *StreamService) OpenMediaFile(p string) (VFSFile, error) {
-	if s.vfsMgr != nil && IsWebDAVPath(p) {
+	if s.vfsMgr != nil && IsRemotePath(p) {
 		return s.vfsMgr.Open(p)
 	}
 	f, err := os.Open(p)
@@ -414,7 +414,7 @@ func (s *StreamService) GetDirectStreamInfo(mediaID string) (string, string, err
 
 // vfsJoinPath 路径拼接：对 webdav:// 使用正斜杠（避免 Windows 下 filepath.Join 破坏前缀）
 func vfsJoinPath(base, name string) string {
-	if IsWebDAVPath(base) {
+	if IsRemotePath(base) {
 		base = strings.TrimRight(base, "/")
 		return base + "/" + strings.TrimLeft(name, "/")
 	}
@@ -423,9 +423,10 @@ func vfsJoinPath(base, name string) string {
 
 // vfsDir 目录提取：对 webdav:// 使用正斜杠规则
 func vfsDir(p string) string {
-	if IsWebDAVPath(p) {
+	if IsRemotePath(p) {
 		i := strings.LastIndex(p, "/")
-		if i <= len("webdav:/") { // 保护 webdav:// 前缀
+		// 保护 scheme:// 前缀（webdav:// 与 alist:// 均为 8 字符，s3:// 更短）
+		if schemeEnd := strings.Index(p, "://"); i <= schemeEnd+2 {
 			return p
 		}
 		return p[:i]
