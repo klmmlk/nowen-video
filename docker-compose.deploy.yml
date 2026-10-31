@@ -23,10 +23,10 @@ version: '3.8'
 
 services:
   nowen-video:
-    # 直接使用 Docker Hub 预构建镜像（manifest list 自动选 amd64/arm64/armv7）
-    image: cropflre/nowen-video:latest
+    # 使用 GHCR 预构建镜像（release-docker.yml 自动发布，manifest list 自动选 amd64/arm64）
+    image: ghcr.io/klmmlk/nowen-video:latest
     # 如需锁定版本：
-    # image: cropflre/nowen-video:v1.2.0
+    # image: ghcr.io/klmmlk/nowen-video:v1.3.4
     # 如需在混合架构主机强制指定，取消注释：
     # platform: linux/arm64
     container_name: nowen-video
