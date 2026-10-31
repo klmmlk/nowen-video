@@ -39,7 +39,47 @@ func normalizeLibraryPaths(paths []string, path string) []string {
 type LibraryHandler struct {
 	libService *service.LibraryService
 	permSvc    *service.PermissionService
+	vfsMgr     *service.VFSManager
 	logger     *zap.SugaredLogger
+}
+
+// validateLibraryPath 校验单个媒体库路径存在且为目录。
+// 本地路径走 os.Stat；远程路径（webdav:// / alist:// / s3://）经 VFSManager
+// 路由到对应远端真实探测，远端存储未启用时给出明确提示而非"路径不存在"。
+func (h *LibraryHandler) validateLibraryPath(p string) error {
+	if service.IsRemotePath(p) {
+		if h.vfsMgr == nil {
+			// VFS 未注入时无法校验远程路径，放行交由扫描阶段兜底报错
+			return nil
+		}
+		vfs, rel := h.vfsMgr.ResolvePath(p)
+		if vfs == nil || vfs.Type() == "local" {
+			return fmt.Errorf("远程存储路径 %s 无法解析：对应存储未启用或初始化失败，请先在存储设置中配置并启用", p)
+		}
+		info, err := vfs.Stat(rel)
+		if err != nil {
+			return fmt.Errorf("远程路径不可访问: %s，%v", p, err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("远程路径不是目录: %s", p)
+		}
+		return nil
+	}
+
+	info, err := os.Stat(p)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("路径不存在: %s，请检查路径是否正确以及Docker卷映射是否配置", p)
+		}
+		if os.IsPermission(err) {
+			return fmt.Errorf("无权限访问路径: %s，请检查文件权限", p)
+		}
+		return fmt.Errorf("访问路径失败 %s: %v", p, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("路径不是目录: %s", p)
+	}
+	return nil
 }
 
 // CreateLibraryRequest 创建媒体库请求
@@ -122,23 +162,10 @@ func (h *LibraryHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// 逐个校验每个路径是否存在且为目录
+	// 逐个校验每个路径是否存在且为目录（支持远程存储路径）
 	for _, p := range paths {
-		info, err := os.Stat(p)
-		if err != nil {
-			if os.IsNotExist(err) {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("路径不存在: %s，请检查路径是否正确以及Docker卷映射是否配置", p)})
-				return
-			}
-			if os.IsPermission(err) {
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("无权限访问路径: %s，请检查文件权限", p)})
-				return
-			}
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("访问路径失败 %s: %v", p, err)})
-			return
-		}
-		if !info.IsDir() {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("路径不是目录: %s", p)})
+		if err := h.validateLibraryPath(p); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 	}
@@ -287,21 +314,8 @@ func (h *LibraryHandler) Update(c *gin.Context) {
 		}
 		if changed {
 			for _, p := range newPaths {
-				pathInfo, pathErr := os.Stat(p)
-				if pathErr != nil {
-					if os.IsNotExist(pathErr) {
-						c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("路径不存在: %s", p)})
-						return
-					}
-					if os.IsPermission(pathErr) {
-						c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("无权限访问路径: %s", p)})
-						return
-					}
-					c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("访问路径失败 %s: %v", p, pathErr)})
-					return
-				}
-				if !pathInfo.IsDir() {
-					c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("路径不是目录: %s", p)})
+				if err := h.validateLibraryPath(p); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 					return
 				}
 			}
