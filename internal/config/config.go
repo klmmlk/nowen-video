@@ -1293,6 +1293,72 @@ func (c *Config) ClearDoubanCookie() error {
 	return c.SetDoubanCookie("")
 }
 
+// SaveStorageWebDAVConfig 将 WebDAV 存储配置持久化到配置文件。
+// 管理后台保存的存储配置此前只驻留内存，服务重启即丢失。
+func (c *Config) SaveStorageWebDAVConfig(cfg WebDAVConfig) error {
+	c.mu.Lock()
+	c.Storage.WebDAV = cfg
+	c.mu.Unlock()
+
+	viper.Set("storage.webdav.enabled", cfg.Enabled)
+	viper.Set("storage.webdav.server_url", cfg.ServerURL)
+	viper.Set("storage.webdav.username", cfg.Username)
+	viper.Set("storage.webdav.password", cfg.Password)
+	viper.Set("storage.webdav.base_path", cfg.BasePath)
+	viper.Set("storage.webdav.timeout", cfg.Timeout)
+	viper.Set("storage.webdav.enable_pool", cfg.EnablePool)
+	viper.Set("storage.webdav.pool_size", cfg.PoolSize)
+	viper.Set("storage.webdav.enable_cache", cfg.EnableCache)
+	viper.Set("storage.webdav.cache_ttl_hours", cfg.CacheTTLHours)
+	viper.Set("storage.webdav.max_retries", cfg.MaxRetries)
+	viper.Set("storage.webdav.retry_interval", cfg.RetryInterval)
+	viper.Set("storage.webdav.read_block_size_mb", cfg.ReadBlockSizeMB)
+	viper.Set("storage.webdav.read_block_count", cfg.ReadBlockCount)
+	return c.saveConfig()
+}
+
+// SaveStorageAlistConfig 将 Alist 存储配置持久化到配置文件
+func (c *Config) SaveStorageAlistConfig(cfg AlistConfig) error {
+	c.mu.Lock()
+	c.Storage.Alist = cfg
+	c.mu.Unlock()
+
+	viper.Set("storage.alist.enabled", cfg.Enabled)
+	viper.Set("storage.alist.server_url", cfg.ServerURL)
+	viper.Set("storage.alist.username", cfg.Username)
+	viper.Set("storage.alist.password", cfg.Password)
+	viper.Set("storage.alist.token", cfg.Token)
+	viper.Set("storage.alist.base_path", cfg.BasePath)
+	viper.Set("storage.alist.timeout", cfg.Timeout)
+	viper.Set("storage.alist.enable_cache", cfg.EnableCache)
+	viper.Set("storage.alist.cache_ttl_hours", cfg.CacheTTLHours)
+	viper.Set("storage.alist.read_block_size_mb", cfg.ReadBlockSizeMB)
+	viper.Set("storage.alist.read_block_count", cfg.ReadBlockCount)
+	return c.saveConfig()
+}
+
+// SaveStorageS3Config 将 S3 兼容对象存储配置持久化到配置文件
+func (c *Config) SaveStorageS3Config(cfg S3Config) error {
+	c.mu.Lock()
+	c.Storage.S3 = cfg
+	c.mu.Unlock()
+
+	viper.Set("storage.s3.enabled", cfg.Enabled)
+	viper.Set("storage.s3.endpoint", cfg.Endpoint)
+	viper.Set("storage.s3.region", cfg.Region)
+	viper.Set("storage.s3.access_key", cfg.AccessKey)
+	viper.Set("storage.s3.secret_key", cfg.SecretKey)
+	viper.Set("storage.s3.bucket", cfg.Bucket)
+	viper.Set("storage.s3.base_path", cfg.BasePath)
+	viper.Set("storage.s3.path_style", cfg.PathStyle)
+	viper.Set("storage.s3.timeout", cfg.Timeout)
+	viper.Set("storage.s3.enable_cache", cfg.EnableCache)
+	viper.Set("storage.s3.cache_ttl_hours", cfg.CacheTTLHours)
+	viper.Set("storage.s3.read_block_size_mb", cfg.ReadBlockSizeMB)
+	viper.Set("storage.s3.read_block_count", cfg.ReadBlockCount)
+	return c.saveConfig()
+}
+
 // SaveAdultScraperConfig 将当前 AdultScraper 配置持久化到配置文件
 // 调用前应先在内存中更新 c.AdultScraper 字段，本方法只负责同步到 viper 并写盘
 func (c *Config) SaveAdultScraperConfig() error {

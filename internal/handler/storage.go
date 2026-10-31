@@ -109,6 +109,13 @@ func (h *StorageHandler) UpdateWebDAVConfig(c *gin.Context) {
 	if req.Password == "" {
 		newCfg.Password = h.cfg.Storage.WebDAV.Password
 	}
+	// 块缓存参数未在请求中暴露，沿用原值避免被清零
+	if newCfg.ReadBlockSizeMB == 0 {
+		newCfg.ReadBlockSizeMB = h.cfg.Storage.WebDAV.ReadBlockSizeMB
+	}
+	if newCfg.ReadBlockCount == 0 {
+		newCfg.ReadBlockCount = h.cfg.Storage.WebDAV.ReadBlockCount
+	}
 
 	// 更新服务配置
 	if err := h.webdavService.UpdateConfig(newCfg); err != nil {
@@ -117,8 +124,10 @@ func (h *StorageHandler) UpdateWebDAVConfig(c *gin.Context) {
 		return
 	}
 
-	// 更新主配置
-	h.cfg.Storage.WebDAV = newCfg
+	// 更新主配置并持久化到配置文件，避免重启后丢失
+	if err := h.cfg.SaveStorageWebDAVConfig(newCfg); err != nil {
+		h.logger.Warnf("WebDAV 配置已生效但写盘失败: %v", err)
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "WebDAV 配置已更新"})
 }
