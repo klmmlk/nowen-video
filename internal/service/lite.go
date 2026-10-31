@@ -61,6 +61,7 @@ func NewLiteServices(repos *repository.Repositories, cfg *config.Config, logger 
 	vfsManager := NewVFSManager(logger)
 	scanner.SetVFSManager(vfsManager)
 	nfoService.SetVFSManager(vfsManager)
+	libraryService.SetVFSManager(vfsManager)
 
 	// Remote storage remains available but is initialized only when explicitly
 	// configured, so local-library users do not pay for remote connection probes.

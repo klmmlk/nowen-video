@@ -37,6 +37,7 @@ type LibraryService struct {
 	scanning               sync.Map            // 记录正在扫描的媒体库ID
 	scanStates             sync.Map            // 持久化当前扫描阶段：libraryID -> *ScanPhaseData
 	wsHub                  *WSHub              // WebSocket事件广播
+	vfsMgr                 *VFSManager         // 远程存储路径（webdav:// / alist:// / s3://）解析
 	fileWatcher            *FileWatcherService // 文件监听服务
 }
 
@@ -79,6 +80,11 @@ func NewLibraryService(
 // SetWSHub 设置WebSocket Hub（延迟注入，避免循环依赖）
 func (s *LibraryService) SetWSHub(hub *WSHub) {
 	s.wsHub = hub
+}
+
+// SetVFSManager 设置 VFS 管理器（延迟注入，用于远程存储路径解析）
+func (s *LibraryService) SetVFSManager(vfsMgr *VFSManager) {
+	s.vfsMgr = vfsMgr
 }
 
 // SetFileWatcher 设置文件监听服务（延迟注入）
@@ -237,6 +243,55 @@ func (s *LibraryService) clearScanPhaseState(libraryID string) {
 	}
 }
 
+// statLibraryPath 扫描预检：校验路径存在且为目录，返回目录条目数。
+// 本地路径走 os.Stat/os.ReadDir；远程路径（webdav:// / alist:// / s3://）经
+// VFS 路由到对应远端探测，远端存储未启用时报明确错误而不是误判为路径不存在。
+func (s *LibraryService) statLibraryPath(p string) (int, error) {
+	if !IsRemotePath(p) {
+		info, err := os.Stat(p)
+		if err != nil {
+			return 0, err
+		}
+		if !info.IsDir() {
+			return 0, fmt.Errorf("路径不是目录: %s", p)
+		}
+		entries, _ := os.ReadDir(p)
+		return len(entries), nil
+	}
+	if s.vfsMgr == nil {
+		// VFS 未注入时无法校验远程路径，放行交由扫描阶段兜底
+		return 0, nil
+	}
+	vfs, rel := s.vfsMgr.ResolvePath(p)
+	if vfs == nil || vfs.Type() == "local" {
+		return 0, fmt.Errorf("远程存储未启用或初始化失败: %s", p)
+	}
+	info, err := vfs.Stat(rel)
+	if err != nil {
+		return 0, err
+	}
+	if !info.IsDir() {
+		return 0, fmt.Errorf("路径不是目录: %s", p)
+	}
+	entries, _ := vfs.ReadDir(rel)
+	return len(entries), nil
+}
+
+// broadcastScanFailed 广播扫描失败事件：前端据此退出"扫描中"状态并提示原因，
+// 否则预检失败只写日志、不发任何事件，UI 会永远停在扫描进行中。
+func (s *LibraryService) broadcastScanFailed(libraryID, libraryName, message string) {
+	s.clearScanPhaseState(libraryID)
+	if s.wsHub == nil {
+		return
+	}
+	s.wsHub.BroadcastEvent(EventScanFailed, &ScanProgressData{
+		LibraryID:   libraryID,
+		LibraryName: libraryName,
+		Phase:       "scanning",
+		Message:     message,
+	})
+}
+
 // Scan 触发扫描（异步）- 包含文件扫描和元数据刮削
 func (s *LibraryService) Scan(id string) error {
 	lib, err := s.repo.FindByID(id)
@@ -257,21 +312,18 @@ func (s *LibraryService) Scan(id string) error {
 		allPaths := lib.AllPaths()
 		if len(allPaths) == 0 {
 			s.logger.Errorf("媒体库未配置任何路径 (媒体库: %s)", lib.Name)
+			s.broadcastScanFailed(id, lib.Name, "媒体库未配置任何路径")
 			return
 		}
 		totalEntries := 0
 		for _, p := range allPaths {
-			info, err := os.Stat(p)
+			entries, err := s.statLibraryPath(p)
 			if err != nil {
 				s.logger.Errorf("媒体库路径不可访问: %s (媒体库: %s) err=%v", p, lib.Name, err)
+				s.broadcastScanFailed(id, lib.Name, fmt.Sprintf("媒体库路径不可访问: %s，%v", p, err))
 				return
 			}
-			if !info.IsDir() {
-				s.logger.Errorf("媒体库路径不是目录: %s (媒体库: %s)", p, lib.Name)
-				return
-			}
-			entries, _ := os.ReadDir(p)
-			totalEntries += len(entries)
+			totalEntries += entries
 		}
 		if totalEntries == 0 {
 			s.logger.Warnf("媒体库所有路径均为空 (媒体库: %s)", lib.Name)
@@ -758,13 +810,9 @@ func (s *LibraryService) Reindex(id string) error {
 
 		// 异步检查路径（网络驱动器可能较慢，不阻塞 HTTP 响应）
 		for _, p := range lib.AllPaths() {
-			info, err := os.Stat(p)
-			if err != nil {
+			if _, err := s.statLibraryPath(p); err != nil {
 				s.logger.Errorf("媒体库路径不可访问: %s (媒体库: %s) err=%v", p, lib.Name, err)
-				return
-			}
-			if !info.IsDir() {
-				s.logger.Errorf("媒体库路径不是目录: %s (媒体库: %s)", p, lib.Name)
+				s.broadcastScanFailed(id, lib.Name, fmt.Sprintf("媒体库路径不可访问: %s，%v", p, err))
 				return
 			}
 		}
