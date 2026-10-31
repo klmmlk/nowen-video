@@ -232,16 +232,26 @@ func (m *VFSManager) ReadDir(path string) ([]fs.DirEntry, error) {
 func (m *VFSManager) Walk(root string, fn filepath.WalkFunc) error {
 	vfs, realRoot := m.ResolvePath(root)
 
-	// 对于远程路径：VFS Walk 返回的是相对路径，需要拼接回完整的前缀形式
+	// 对于远程路径：VFS Walk 返回的是以 realRoot 开头的路径，需要剥掉 realRoot
+	// 再拼接回带前缀的完整路径（以便下游持久化到 DB），否则子路径库会重复拼接
 	switch vfs.Type() {
 	case "webdav", "alist", "s3":
 		base := strings.TrimSuffix(root, "/")
+		realPrefix := strings.TrimRight(realRoot, "/")
 		return vfs.Walk(realRoot, func(p string, info os.FileInfo, err error) error {
-			fullPath := base + "/" + strings.TrimLeft(p, "/")
 			if p == "" || p == "." {
-				fullPath = base
+				return fn(base, info, err)
 			}
-			return fn(fullPath, info, err)
+			rel := p
+			if realPrefix != "" {
+				if p == realPrefix {
+					return fn(base, info, err)
+				}
+				if strings.HasPrefix(p, realPrefix+"/") {
+					rel = strings.TrimPrefix(p, realPrefix)
+				}
+			}
+			return fn(base+"/"+strings.TrimLeft(rel, "/"), info, err)
 		})
 	}
 	return vfs.Walk(realRoot, fn)
